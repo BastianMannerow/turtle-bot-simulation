@@ -127,6 +127,7 @@ class Example:
                 ==>
                 =g>
                 isa     {phase}
-                state   {phase}Start
+                state   {phase}Calculation
+                imaginal a,b
             """
         )

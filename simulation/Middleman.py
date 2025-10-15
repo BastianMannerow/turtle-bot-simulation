@@ -1,5 +1,7 @@
 from simulation.AgentConstruct import AgentConstruct
-from simulation.environment import Wall, FakeWall, DefinitelyAWall
+from simulation.environment.Wall import Wall
+from simulation.environment.FakeWall import FakeWall
+from simulation.environment.DefinitelyAWall import DefinitelyAWall
 
 class Middleman:
     """
