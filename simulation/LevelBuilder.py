@@ -1,6 +1,8 @@
 import random
 from typing import Any, List, Optional, Sequence, Tuple
-from simulation.environment import Wall, FakeWall, DefinitelyAWall
+from simulation.environment.Wall import Wall
+from simulation.environment.FakeWall import FakeWall
+from simulation.environment.DefinitelyAWall import DefinitelyAWall
 
 def build_level(level_type: str, height: int, width: int, agents: Sequence[Any], rng: Optional[random.Random] = None) -> \
         list[list[Any | None]] | None:
@@ -76,4 +78,35 @@ def exercise_two():
 
 # TODO Johannes
 def real_world_environment(agents):
-    return None
+    total_cells = 25*22
+    num_agents = 1
+    matrix: List[List[Optional[Any]]] = [[None for _ in range(25)] for _ in range(22)]
+    # agent start position
+    matrix[20][1] = agents[0]
+    # Outside Walls
+    # Outside Wall top
+    for i in range(25):
+        for j in range(22):
+            # outer walls and server room cutout - definitely walls
+            if j == 0 or j == 21 or i == 0 or i == 24 or i >= 12 and i <= 25 and j >= 1 and j <= 5:
+              # matrix[y][x] in coordinate system
+                matrix[j][i] = DefinitelyAWall()
+            #inner walls and obstacles
+            # table group window
+            if (j >= 4 and j <= 17 and i <= 3 and i > 0) or (j >= 4 and j <= 6 and i >= 4 and i <= 8) or (j >= 15 and j <= 17 and i >= 4 and i <= 8):
+                matrix[j][i] = Wall()
+            # two rolling container + pepper
+            if j >= 19 and j <= 20 and i >= 10 and i <= 16:
+                matrix[j][i] = Wall()
+            # table group door side corner
+            if (j >= 14 and j <= 16 and i >= 17 and i <= 23) or (j >= 17 and j <= 20 and i >= 21 and i <= 23):
+                matrix[j][i] = Wall()
+            # shelf server room side
+            if j == 6 and i >= 18 and i <= 20:
+                matrix[j][i] = Wall()
+            # round table middle of room
+            if j >= 11 and j <= 14 and i >= 11 and i <= 14:
+                matrix[j][i] = Wall()
+            # fake walls TODO / LATER maybe
+    return matrix
+

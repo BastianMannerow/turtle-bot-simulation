@@ -35,15 +35,15 @@ class Simulation:
         # Sim configuration
         self.focus_position = (0, 2)
         self.print_middleman = False
-        self.width = 16
-        self.height = 16
-        self.speed_factor = 50              # 100 = real-time cognition
+        self.width = 25
+        self.height = 22
+        self.speed_factor = 100              # 100 = real-time cognition
         self.print_agent_actions = True
-        self.los = 3  # 0 infinity line of sight
+        self.los = 0  # 0 infinity line of sight
         self.stepper = True
-        self.level_type = "Exercise 1"
+        self.level_type = "Real"
         self.agent_type_config = {
-            "Example": {"count": 3, "print_agent_actions": True}
+            "Example": {"count": 1, "print_agent_actions": True}
         }
 
         # Runtime state
