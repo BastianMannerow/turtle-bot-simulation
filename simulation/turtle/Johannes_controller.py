@@ -22,23 +22,16 @@ class JohannesController(Node):
         self.turtle_bots = {} # {agent_id: turtle_bot_object}
         # Subscriber for bumper
         self.create_subscription(HazardDetectionVector, '/hazard_detection', self.hazard_callback, qos_profile_sensor_data)
-        # Undock action client
+        # Undock action client (ros2 action send_goal /undock irobot_create_msgs/action/Undock "{}" # undock the turtle bot before moving)
         #self.undock_action_client = ActionClient(self, Undock, '/undock')
         # Rotate action client
         self.rotate_action_client = ActionClient(self, RotateAngle, '/rotate_angle')
         # Drive distance action client
         self.drive_distance_action_client = ActionClient(self, DriveDistance, '/drive_distance')
         print("Controller initialized")
-    
-    
 
-        # ros2 action send_goal /undock irobot_create_msgs/action/Undock "{}" # undock the turtle bot before moving
-        # ros2 action send_goal /drive_distance irobot_create_msgs/action/DriveDistance "distance: 0.3" # move forward 30 cm
-        # ros2 action send_goal /rotate_angle irobot_create_msgs/action/RotateAngle "angle: 1.558" #(pi/2) 90 degrees in radians to the left
-        # ros2 action send_goal /rotate_angle irobot_create_msgs/action/RotateAngle "angle: -1.558" #-(pi/2) 90 degrees in radians to the right
-        # ros2 action send_goal /rotate_angle irobot_create_msgs/action/RotateAngle "angle: 3.14" #(pi) 180 degrees in radians to the left
-        
-    def hazard_callback(self, msg: HazardDetectionVector):
+    # https://github.com/iRobotEducation/irobot_create_msgs/blob/rolling/msg/HazardDetection.msg
+    '''def hazard_callback(self, msg: HazardDetectionVector):
         for hazard in msg.detections:
             if hazard.type == 1 and hazard.header.frame_id == "bump_right" or hazard.header.frame_id == "bump_front_right" or hazard.header.frame_id == "bump_front_center" and self.turning == 0:
                 print("Right bumper pressed.")
@@ -47,7 +40,7 @@ class JohannesController(Node):
                 print("Left bumper pressed.")
                 return register_bumping()
     
-    '''def undock_robot(self):
+    def undock_robot(self):
         self.get_logger().info("Starting undock action...")
         if not self.undock_action_client.wait_for_server(timeout_sec=5.0):
             self.get_logger().error("Undock action server not available!")
@@ -88,6 +81,10 @@ class JohannesController(Node):
     def main(args=None, agent_id=None):
         rclpy.init(args=args)
         node = JohannesController()
+        # ros2 action send_goal /drive_distance irobot_create_msgs/action/DriveDistance "distance: 0.3" # move forward 30 cm
+        # ros2 action send_goal /rotate_angle irobot_create_msgs/action/RotateAngle "angle: 1.558" #(pi/2) 90 degrees in radians to the left
+        # ros2 action send_goal /rotate_angle irobot_create_msgs/action/RotateAngle "angle: -1.558" #-(pi/2) 90 degrees in radians to the right
+        # ros2 action send_goal /rotate_angle irobot_create_msgs/action/RotateAngle "angle: 3.14" #(pi) 180 degrees in radians to the left
         if move_agent_top():
             ActionClient.send_goal_async(node, DriveDistance, '/drive_distance', distance=0.3)
         elif move_agent_left():
