@@ -2,6 +2,8 @@ from typing import Any, List, Optional, Tuple
 from gui.ExampleGUI import ExampleGUI
 from simulation.environment.Wall import Wall
 from simulation.environment.DefinitelyAWall import DefinitelyAWall
+from simulation.turtle.Johannes_controller import JohannesController as jc
+from simulation.Simulation import Simulation
 
 class Environment:
     """
@@ -30,7 +32,7 @@ class Environment:
       Use this to continue after an agent hits an internal error.
     """
 
-    def __init__(self, level_matrix: List[List[Any]], gui: Optional[Any] = None) -> None:
+    def __init__(self, level_matrix: List[List[Any]], gui: Optional[Any], simulation: Simulation) -> None:
         """
         Initialize the grid.
 
@@ -51,6 +53,7 @@ class Environment:
         # Optional GUI; not required for headless simulations.
         self.gui = ExampleGUI(self, gui)
         self._update_gui()
+        self.robot_controller = jc(simulation.agent_list, self)
 
     # -----------------------------
     # Core utilities
@@ -124,21 +127,25 @@ class Environment:
 
     # TODO Johannes
     def move_agent_top(self, agent: Any) -> bool:
+        self.robot_controller.move_top(agent, self.jc)
         """Move agent one cell up."""
         return self.move_agent(agent, -1, 0)
 
     # TODO Johannes
     def move_agent_bottom(self, agent: Any) -> bool:
+        self.robot_controller.move_bottom(agent, self.jc)
         """Move agent one cell down."""
         return self.move_agent(agent, 1, 0)
 
     # TODO Johannes
     def move_agent_left(self, agent: Any) -> bool:
+        self.robot_controller.move_left(agent, self.jc)
         """Move agent one cell left."""
         return self.move_agent(agent, 0, -1)
 
     # TODO Johannes
     def move_agent_right(self, agent: Any) -> bool:
+        self.robot_controller.move_right(agent, self.jc)
         """Move agent one cell right."""
         return self.move_agent(agent, 0, 1)
 
@@ -148,6 +155,9 @@ class Environment:
     def register_bumping(self, agent: Any):
         """Register if the agent bumped."""
         agent.middleman.detect_bump(agent)
+
+    def robot_reached_position(self): # TODO Johannes Call, Basti Inhalt
+        pass
 
     # -----------------------------
     # Lifecycle

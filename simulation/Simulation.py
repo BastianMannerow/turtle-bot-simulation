@@ -127,7 +127,7 @@ class Simulation:
         """
         self.agent_builder()
         level_matrix = levelbuilder.build_level(self.level_type , self.height, self.width, self.agent_list)
-        self.game_environment = Environment(level_matrix, self.root)
+        self.game_environment = Environment(level_matrix, self.root, self)
         self.middleman.set_game_environment(self.game_environment)
 
         if not self.stepper:
