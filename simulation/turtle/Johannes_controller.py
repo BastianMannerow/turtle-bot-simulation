@@ -31,7 +31,7 @@ class JohannesController(Node):
 
         self.environment = environment
 
-        tuple_of_agents_and_robot_id_or_dictionary = agent_list
+        tuple_of_agents_and_robot_id_or_dictionary = agent_list # kein tuple, sondern triple aus robot id agent id und temp der positionsdaten um bei bump rückgängig
 
     # https://github.com/iRobotEducation/irobot_create_msgs/blob/rolling/msg/HazardDetection.msg
     def hazard_callback(self, msg: HazardDetectionVector):
@@ -77,22 +77,32 @@ def move_top(agent, jc):
     robot_id = jc.return_robot_id_by_agent(agent)
     node = JohannesController()
     node.send_drive_distance_goal(0.3)
+    time.sleep(3)
 
 def move_left(agent, jc):
     node = JohannesController()
     node.send_rotate_goal(1.57)
     time.sleep(3)
     node.send_drive_distance_goal(0.3)
+    time.sleep(3)
+    node.send_rotate_goal(-1.57)
+    time.sleep(3)
 
 def move_right(agent, jc):
     node = JohannesController()
     node.send_rotate_goal(-1.57)
     time.sleep(3)
     node.send_drive_distance_goal(0.3)
+    time.sleep(3)
+    node.send_rotate_goal(1.57)
+    time.sleep(3)
 
 def move_bottom(agent, jc):
     node = JohannesController()
     node.send_rotate_goal(3.14)
     time.sleep(5)
     node.send_drive_distance_goal(0.3)
+    time.sleep(3)
+    node.send_rotate_goal(-3.14)
+    time.sleep(5)
 
