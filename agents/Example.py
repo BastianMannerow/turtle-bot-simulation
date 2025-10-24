@@ -124,9 +124,46 @@ class Example:
                 =g>
                 isa     {phase}
                 state   {phase}Start
+                ?manual>
+                state free
                 ==>
                 =g>
-                isa     {phase}
-                state   {phase}Start
+                isa     movement
+                state   up
             """
         )
+
+        actr_agent.productionstring(
+            name=f"move right",
+            string=f"""
+                        =g>
+                        isa movement
+                        state right
+                        ?manual>
+                        state free
+                        ==>
+                        =g>
+                        isa movement
+                        state up
+                        +manual>
+                        isa _manual
+                        cmd press_key
+                        key D
+                        """)
+        actr_agent.productionstring(
+            name=f"move up",
+            string=f"""
+                        =g>
+                        isa movement
+                        state up
+                        ?manual>
+                        state free
+                        ==>
+                        =g>
+                        isa movement
+                        state right
+                        +manual>
+                        isa _manual
+                        cmd press_key
+                        key W
+                        """)

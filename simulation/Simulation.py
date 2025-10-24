@@ -40,11 +40,15 @@ class Simulation:
         self.speed_factor = 100              # 100 = real-time cognition
         self.print_agent_actions = True
         self.los = 0  # 0 infinity line of sight
-        self.stepper = True
+        self.stepper = False
         self.level_type = "Real"
         self.agent_type_config = {
             "Example": {"count": 1, "print_agent_actions": True}
         }
+        self.activate_turtles = True
+
+        # Blocks simulation (for example if turtle is moving)
+        self.pause_simulation = False
 
         # Runtime state
         self.global_sim_time = 0.0
@@ -145,6 +149,10 @@ class Simulation:
         if self.stepper:
             return
 
+        if self.pause_simulation:
+            self.root.after(20, self.execute_step)
+            return
+
         for agent in self.agent_list:
             agent.update_stimulus()
 
@@ -163,6 +171,10 @@ class Simulation:
         Execute one cognitive step for `agent`, handle inactivity timeouts,
         propagate motor inputs, and reschedule.
         """
+        if self.pause_simulation:
+            self.root.after(20, lambda: self.execute_agent_step(agent))
+            return
+
         try:
             with self.suppress_stdout():
                 agent.simulation.step()
@@ -202,6 +214,10 @@ class Simulation:
         """
         Execute exactly one cognitive step for the next agent (space-bar driven).
         """
+        if self.pause_simulation:
+            self.root.after(20, self.step_once)
+            return
+
         for agent in self.agent_list:
             agent.update_stimulus()
 
@@ -255,6 +271,9 @@ class Simulation:
 
     def _jump_step(self):
         if not getattr(self, "jumping", False):
+            return
+        if self.pause_simulation:
+            self.root.after(20, self._jump_step)
             return
         before = len(self.interceptor.records)
         self.step_once()
