@@ -4,6 +4,8 @@ from simulation.environment.Wall import Wall
 from simulation.environment.DefinitelyAWall import DefinitelyAWall
 from simulation.turtle.Johannes_controller import JohannesController as jc
 import simulation.Simulation as Simulation
+import threading
+import rclpy
 
 class Environment:
     """
@@ -55,6 +57,7 @@ class Environment:
         self._update_gui()
         self.simulation = simulation
         self.robot_controller = jc(simulation.agent_list, self)
+        threading.Thread(target=rclpy.spin, args=(self.robot_controller,), daemon=True).start()
 
     # -----------------------------
     # Core utilities
@@ -129,28 +132,28 @@ class Environment:
     # TODO Johannes
     def move_agent_top(self, agent: Any) -> bool:
         if self.simulation.activate_turtles:
-            self.robot_controller.move_top(agent, self.jc)
+            self.robot_controller.move_top(agent)
         """Move agent one cell up."""
         return self.move_agent(agent, -1, 0)
 
     # TODO Johannes
     def move_agent_bottom(self, agent: Any) -> bool:
         if self.simulation.activate_turtles:
-            self.robot_controller.move_bottom(agent, self.jc)
+            self.robot_controller.move_bottom(agent)
         """Move agent one cell down."""
         return self.move_agent(agent, 1, 0)
 
     # TODO Johannes
     def move_agent_left(self, agent: Any) -> bool:
         if self.simulation.activate_turtles:
-            self.robot_controller.move_left(agent, self.jc)
+            self.robot_controller.move_left(agent)
         """Move agent one cell left."""
         return self.move_agent(agent, 0, -1)
 
     # TODO Johannes
     def move_agent_right(self, agent: Any) -> bool:
         if self.simulation.activate_turtles:
-            self.robot_controller.move_right(agent, self.jc)
+            self.robot_controller.move_right(agent)
         """Move agent one cell right."""
         return self.move_agent(agent, 0, 1)
 
@@ -163,9 +166,11 @@ class Environment:
 
     def robot_is_moving(self):
         self.simulation.pause_simulation = True # TODO Johannes Call
+        print("Robot is moving - pausing simulation")
 
     def robot_reached_position(self): # TODO Johannes Call
-        self.simulation.pause = False
+        self.simulation.pause_simulation = False
+        print("Robot reached position - resuming simulation")
 
     # -----------------------------
     # Lifecycle
