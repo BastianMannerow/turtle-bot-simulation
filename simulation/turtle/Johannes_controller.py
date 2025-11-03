@@ -30,23 +30,23 @@ class JohannesController(Node):
                     "drive": ActionClient(self, DriveDistance, f"/{tb_name}/drive_distance"),
                     "rotate": ActionClient(self, RotateAngle, f"/{tb_name}/rotate_angle")
                 }
+                # Subscribe to hazard detection for every single turtlebot
+                self.create_subscription(HazardDetectionVector, f"/{tb_name}/hazard_detection",lambda msg, a=agent: self.hazard_callback(msg, a), qos_profile_sensor_data)
                 self.get_logger().info(f"Mapped agent {agent.name} → {tb_name}")
             else:
                 self.get_logger().warn(f"No TurtleBot available for agent {agent.name} (index {i})")
-
-        # Subscribe to hazard detection for all turtlebots (optional wildcard, depends on topic remapping)
-        self.create_subscription(HazardDetectionVector, '/hazard_detection', self.hazard_callback, qos_profile_sensor_data)
 
         self.get_logger().info("JohannesController node initialized for multiple robots.")
 
     # ------------------------------------
     # Hazard detection callback
     # ------------------------------------
-    def hazard_callback(self, msg):
+    def hazard_callback(self, msg, agent):
         for hazard in msg.detections:
             if hazard.type == 1 and 'bump' in hazard.header.frame_id:
-                self.get_logger().warn(f"Bumper triggered: {hazard.header.frame_id}")
-                self.environment.register_bumping(None)
+                tb_name = self._get_turtlebot(agent)["name"]
+                self.get_logger().warn(f"[{tb_name}] Bumper triggered: {hazard.header.frame_id}")
+                self.environment.register_bumping(agent)
 
     # ------------------------------------
     # Core robot commands
