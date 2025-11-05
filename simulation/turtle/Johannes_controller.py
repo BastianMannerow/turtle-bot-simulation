@@ -3,7 +3,10 @@ from rclpy.qos import qos_profile_sensor_data
 from rclpy.action import ActionClient
 from irobot_create_msgs.msg import HazardDetectionVector
 from irobot_create_msgs.action import DriveDistance, RotateAngle
+from nav_msgs.msg import Odometry
+import math
 import rclpy
+import time
 
 class JohannesController(Node):
     """
@@ -19,6 +22,7 @@ class JohannesController(Node):
         self.environment = environment
         self.agent_list = agent_list
         self.turtle_bots = {}  # {agent: {"name": "tb1", "drive": client, "rotate": client}}
+        self.positions = {}
 
         # Map each agent to a TurtleBot name (tb1, tb2, tb3, tb4)
         turtle_names = ["tb1", "tb2", "tb3", "tb4"] # Rename to what you want, agents are mapped like: agent_list[0] -> turtle_names[0], etc. (reallife turtlebots have to be named accordingly over ros turtlebot-setup)
@@ -32,7 +36,11 @@ class JohannesController(Node):
                 }
                 # Subscribe to hazard detection for every single turtlebot
                 self.create_subscription(HazardDetectionVector, f"/{tb_name}/hazard_detection",lambda msg, a=agent: self.hazard_callback(msg, a), qos_profile_sensor_data)
-                
+                # Subscribe to odometry topic for every single turtlebot
+                self.create_subscription(Odometry, f"/{tb_name}/odom", lambda msg, a=agent: self.odom_callback(msg, a), qos_profile_sensor_data)
+
+                self.positions[tb_name] = {"x": 0.0, "y": 0.0, "yaw": 0.0}
+
                 self.get_logger().info(f"Mapped agent {agent.name} → {tb_name}")
             else:
                 self.get_logger().warn(f"No TurtleBot available for agent {agent.name} (index {i})")
@@ -47,7 +55,50 @@ class JohannesController(Node):
             if hazard.type == 1 and 'bump' in hazard.header.frame_id:
                 tb_name = self._get_turtlebot(agent)["name"]
                 self.get_logger().warn(f"[{tb_name}] Bumper triggered: {hazard.header.frame_id}")
-                self.environment.register_bumping(agent)
+                self.bump_triggered = True
+                self.return_to_start_pos(agent)
+            else:
+                return
+            
+    def return_to_start_pos(self, agent):
+        tb_name = self._get_turtlebot(agent)["name"]
+        current_pos = self.positions.get(tb_name, None)
+        self.get_logger().warn(f"self.start_pos: {self.start_pos}")
+        self.get_logger().warn(f"current_pos: {current_pos}")
+        dx = self.start_pos["x"] - current_pos["x"]
+        dy = self.start_pos["y"] - current_pos["y"]
+        distance = (dx**2 + dy**2) ** 0.5
+        self.get_logger().warn(f"distance to back up: {distance}")
+        target_angle = math.atan2(dy, dx)
+        self.get_logger().warn(f"target_angle: {target_angle}")
+        yaw = current_pos["yaw"]
+        self.get_logger().warn(f"yaw: {yaw}")
+        rotate_angle = target_angle - yaw
+        rotate_angle = math.atan2(math.sin(rotate_angle), math.cos(rotate_angle))
+        self.get_logger().warn(f"rotate_angle: {rotate_angle}")
+
+        if self.bump_triggered:
+            self._send_only_rotate(agent, rotate_angle)
+            time.sleep(5)
+            self._send_drive_goal(agent, distance)
+            time.sleep(3)
+            self._send_only_rotate(agent, -rotate_angle)
+            time.sleep(5)
+            self.environment.register_bumping(agent)
+            self.bump_triggered = False
+
+    # ------------------------------------
+    # Odometry detection callback
+    # ------------------------------------
+    def odom_callback(self, msg, agent):
+        tb_name = self._get_turtlebot(agent)["name"]
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        q = msg.pose.pose.orientation
+        siny_cosp = 2 * (q.w * q.z + q.x * q.y)
+        cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
+        yaw = math.atan2(siny_cosp, cosy_cosp)
+        self.positions[tb_name] = {"x": x, "y": y, "yaw": yaw}
 
     # ------------------------------------
     # Core robot commands
@@ -155,18 +206,26 @@ class JohannesController(Node):
     # ------------------------------------
     def move_top(self, agent):
         self.environment.robot_is_moving()
+        tb_name = self._get_turtlebot(agent)["name"]
+        self.start_pos = self.positions.get(tb_name, None)
         self._send_drive_goal(agent, 0.3)
 
     def move_left(self, agent):
         self.environment.robot_is_moving()
+        tb_name = self._get_turtlebot(agent)["name"]
+        self.start_pos = self.positions.get(tb_name, None)
         self._send_rotate_then_drive(agent, 1.57, return_after=True)
 
     def move_right(self, agent):
         self.environment.robot_is_moving()
+        tb_name = self._get_turtlebot(agent)["name"]
+        self.start_pos = self.positions.get(tb_name, None)
         self._send_rotate_then_drive(agent, -1.57, return_after=True)
 
     def move_bottom(self, agent):
         self.environment.robot_is_moving()
+        tb_name = self._get_turtlebot(agent)["name"]
+        self.start_pos = self.positions.get(tb_name, None)
         self._send_drive_goal(agent, -0.3)
 
     # ------------------------------------
