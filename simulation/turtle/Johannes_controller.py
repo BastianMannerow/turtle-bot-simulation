@@ -32,6 +32,7 @@ class JohannesController(Node):
                 }
                 # Subscribe to hazard detection for every single turtlebot
                 self.create_subscription(HazardDetectionVector, f"/{tb_name}/hazard_detection",lambda msg, a=agent: self.hazard_callback(msg, a), qos_profile_sensor_data)
+                
                 self.get_logger().info(f"Mapped agent {agent.name} → {tb_name}")
             else:
                 self.get_logger().warn(f"No TurtleBot available for agent {agent.name} (index {i})")
@@ -158,7 +159,7 @@ class JohannesController(Node):
 
     def move_left(self, agent):
         self.environment.robot_is_moving()
-        self._send_rotate_then_drive(agent, 1.57)
+        self._send_rotate_then_drive(agent, 1.57, return_after=True)
 
     def move_right(self, agent):
         self.environment.robot_is_moving()
