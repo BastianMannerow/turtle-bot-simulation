@@ -4,6 +4,7 @@ from rclpy.action import ActionClient
 from irobot_create_msgs.msg import HazardDetectionVector
 from irobot_create_msgs.action import DriveDistance, RotateAngle
 from nav_msgs.msg import Odometry
+from action_msgs.msg import GoalStatus
 import math
 import rclpy
 import time
@@ -23,6 +24,14 @@ class JohannesController(Node):
         self.agent_list = agent_list
         self.turtle_bots = {}  # {agent: {"name": "tb1", "drive": client, "rotate": client}}
         self.positions = {}
+        self.robot_should_rotate_back = False
+        self.robot_rotated = False
+        self.start_positions = {}
+        self.turned_one_time = False
+        self.turned_second_time = False
+        self.current_drive_goal = None
+        self.current_rotate_goal = None
+
 
         # Map each agent to a TurtleBot name (tb1, tb2, tb3, tb4)
         turtle_names = ["tb1", "tb2", "tb3", "tb4"] # Rename to what you want, agents are mapped like: agent_list[0] -> turtle_names[0], etc. (reallife turtlebots have to be named accordingly over ros turtlebot-setup)
@@ -39,8 +48,6 @@ class JohannesController(Node):
                 # Subscribe to odometry topic for every single turtlebot
                 self.create_subscription(Odometry, f"/{tb_name}/odom", lambda msg, a=agent: self.odom_callback(msg, a), qos_profile_sensor_data)
 
-                self.positions[tb_name] = {"x": 0.0, "y": 0.0, "yaw": 0.0}
-
                 self.get_logger().info(f"Mapped agent {agent.name} → {tb_name}")
             else:
                 self.get_logger().warn(f"No TurtleBot available for agent {agent.name} (index {i})")
@@ -53,45 +60,31 @@ class JohannesController(Node):
     def hazard_callback(self, msg, agent):
         for hazard in msg.detections:
             if hazard.type == 1 and 'bump' in hazard.header.frame_id:
-                tb_name = self._get_turtlebot(agent)["name"]
+                tb_name = self.get_turtlebot(agent)["name"]
                 self.get_logger().warn(f"[{tb_name}] Bumper triggered: {hazard.header.frame_id}")
-                self.bump_triggered = True
-                self.return_to_start_pos(agent)
-            else:
-                return
-            
-    def return_to_start_pos(self, agent):
-        tb_name = self._get_turtlebot(agent)["name"]
-        current_pos = self.positions.get(tb_name, None)
-        self.get_logger().warn(f"self.start_pos: {self.start_pos}")
-        self.get_logger().warn(f"current_pos: {current_pos}")
-        dx = self.start_pos["x"] - current_pos["x"]
-        dy = self.start_pos["y"] - current_pos["y"]
-        distance = (dx**2 + dy**2) ** 0.5
-        self.get_logger().warn(f"distance to back up: {distance}")
-        target_angle = math.atan2(dy, dx)
-        self.get_logger().warn(f"target_angle: {target_angle}")
-        yaw = current_pos["yaw"]
-        self.get_logger().warn(f"yaw: {yaw}")
-        rotate_angle = target_angle - yaw
-        rotate_angle = math.atan2(math.sin(rotate_angle), math.cos(rotate_angle))
-        self.get_logger().warn(f"rotate_angle: {rotate_angle}")
+                # ✅ laufende DRIVE-ACTION abbrechen
+                if self.current_drive_goal is not None:
+                    self.get_logger().warn(f"[{tb_name}] Cancelling current drive goal")
+                    self.current_drive_goal.cancel_goal_async()
+                    self.current_drive_goal = None
 
-        if self.bump_triggered:
-            self._send_only_rotate(agent, rotate_angle)
-            time.sleep(5)
-            self._send_drive_goal(agent, distance)
-            time.sleep(3)
-            self._send_only_rotate(agent, -rotate_angle)
-            time.sleep(5)
-            self.environment.register_bumping(agent)
-            self.bump_triggered = False
+                # ✅ laufende ROTATE-ACTION abbrechen
+                if self.current_rotate_goal is not None:
+                    self.get_logger().warn(f"[{tb_name}] Cancelling current rotate goal")
+                    self.current_rotate_goal.cancel_goal_async()
+                    self.current_rotate_goal = None
+
+                # ✅ jetzt ist der Roboter "frei" für neue Kommandos
+                if tb_name in self.start_positions:
+                    self.return_to_start_pos(agent)
+                else:
+                    self.get_logger().warn(f"[{tb_name}] Keine gespeicherte Startposition – Rückfahrt nicht möglich.")
 
     # ------------------------------------
     # Odometry detection callback
     # ------------------------------------
     def odom_callback(self, msg, agent):
-        tb_name = self._get_turtlebot(agent)["name"]
+        tb_name = self.get_turtlebot(agent)["name"]
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         q = msg.pose.pose.orientation
@@ -100,138 +93,231 @@ class JohannesController(Node):
         yaw = math.atan2(siny_cosp, cosy_cosp)
         self.positions[tb_name] = {"x": x, "y": y, "yaw": yaw}
 
+    def save_start_pos(self, agent):
+        tb_name = self.get_turtlebot(agent)["name"]
+        timeout = time.time() + 1.0
+        while tb_name not in self.positions:
+            if time.time() > timeout:
+                self.get_logger().warn(f"[{tb_name}] Odom-Daten nicht rechtzeitig erhalten – Startpose nicht gespeichert.")
+                return
+            rclpy.spin_once(self, timeout_sec=0.05)
+
+        # Jetzt sind Odom-Daten sicher da
+        self.start_positions[tb_name] = self.positions[tb_name].copy()
+        self.get_logger().warn(f"[{tb_name}] Startpose gespeichert: {self.start_positions[tb_name]} (save_start_pos)")
+
     # ------------------------------------
     # Core robot commands
     # ------------------------------------
-    def _send_rotate_then_drive(self, agent, angle, return_after=False):
-        tb = self._get_turtlebot(agent)
-        if not tb:
-            return
-
-        rotate_client = tb["rotate"]
-        goal = RotateAngle.Goal()
-        goal.angle = angle
-        goal.max_rotation_speed = 1.0
-
-        rotate_client.wait_for_server()
-        send_goal_future = rotate_client.send_goal_async(goal)
-        send_goal_future.add_done_callback(lambda f: self._rotate_goal_response_callback(f, agent, angle, return_after))
-
-    def _rotate_goal_response_callback(self, future, agent, angle, return_after):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().warn('Rotate goal was rejected.')
-            self.environment.robot_reached_position()
-            return
-
-        self.get_logger().info(f'Rotate goal accepted (agent={agent.name}, angle={angle}).')
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(lambda f: self._rotate_result_callback(f, agent, angle, return_after))
-
-    def _rotate_result_callback(self, future, agent, angle, return_after):
-        result = future.result().result
-        self.get_logger().info(f'Rotation complete for {agent.name} (angle={angle}).')
-
-        if return_after and abs(angle) == 1.57:
-            self._send_drive_goal(agent, 0.3, after_rotate_back=True, reverse_angle=-angle)
-        else:
-            self._send_drive_goal(agent, 0.3)
-
-    def _send_drive_goal(self, agent, distance, after_rotate_back=False, reverse_angle=None):
-        tb = self._get_turtlebot(agent)
-        if not tb:
-            return
-
-        drive_client = tb["drive"]
+    def move_forward(self, agent, distance, angle):
+        self.get_logger().warn(f"drive forward command received")
         goal = DriveDistance.Goal()
         goal.distance = distance
         goal.max_translation_speed = 0.2
-
+        tb = self.get_turtlebot(agent)
+        drive_client = tb["drive"]
         drive_client.wait_for_server()
         send_goal_future = drive_client.send_goal_async(goal)
         send_goal_future.add_done_callback(
-            lambda f: self._drive_goal_response_callback(f, agent, after_rotate_back, reverse_angle)
+            lambda f: self.move_forward_response_callback(f, agent, distance, angle)
         )
 
-    def _drive_goal_response_callback(self, future, agent, after_rotate_back, reverse_angle):
+    def move_forward_response_callback(self, future, agent, distance, angle):
+        self.get_logger().warn(f"drive forward command in progress")
         goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().info(f'Drive goal rejected for {agent.name}')
-            return
-
-        self.get_logger().info(f'Drive goal accepted for {agent.name}')
+        self.current_drive_goal = future.result()
         get_result_future = goal_handle.get_result_async()
         get_result_future.add_done_callback(
-            lambda f: self._drive_result_callback(f, agent, after_rotate_back, reverse_angle)
+            lambda f: self.move_forward_result_callback(f, agent, distance, angle)
         )
 
-    def _drive_result_callback(self, future, agent, after_rotate_back, reverse_angle):
-        result = future.result().result
-        self.get_logger().info(f'Drive result received for {agent.name}')
+    def move_forward_result_callback(self, future, agent, distance, angle):
+        result = future.result()
+        if result.status == GoalStatus.STATUS_CANCELED:
+            self.get_logger().warn("Drive command was cancelled, ignoring result callback.")
+            return
+        self.get_logger().warn(f"drive forward command finished")
+        if self.robot_should_rotate_back == True:
+            self.get_logger().warn(f"rotate robot command send after movement")
+            self.robot_should_rotate_back = False
+            self.rotate_robot(agent, distance, -angle)
+        else:
+            self.environment.robot_reached_position()
+            self.robot_rotated = False
 
-        if after_rotate_back and reverse_angle is not None:
-            self._send_only_rotate(agent, reverse_angle)
+    def rotate_robot(self, agent, distance, angle):
+        self.get_logger().warn(f"rotate command received")
+        goal = RotateAngle.Goal()
+        self.get_logger().warn(f"angle: {angle}")
+        goal.angle = angle
+        goal.max_rotation_speed = 1.0
+        tb = self.get_turtlebot(agent)
+        rotate_client = tb["rotate"]
+        rotate_client.wait_for_server()
+        send_goal_future = rotate_client.send_goal_async(goal)
+        send_goal_future.add_done_callback(
+            lambda f: self.rotate_robot_response_callback(f, agent, distance, angle)
+        )
+
+    def rotate_robot_response_callback(self, future, agent, distance, angle):
+        self.get_logger().warn(f"rotate command in progress")
+        goal_handle = future.result()
+        self.current_rotate_goal = future.result()
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(
+            lambda f: self.rotate_robot_result_callback(f, agent, distance, angle)
+        )
+        
+    def rotate_robot_result_callback(self, future, agent, distance, angle):
+        result = future.result()
+        if result.status == GoalStatus.STATUS_CANCELED:
+            self.get_logger().warn("Rotate command was cancelled, ignoring result callback.")
+            return
+        self.get_logger().warn(f"rotate command finished")
+        self.robot_rotated = True
+        if self.robot_should_rotate_back == False:
+            self.get_logger().warn(f"drive forward command send after rotation")
+            self.move_forward(agent, distance, angle)
+        else:
+            self.environment.robot_reached_position()
+            self.robot_rotated = False
+            self.robot_should_rotate_back = False
+    
+    # ------------------------------------
+    # Movements to return to start position
+    # ------------------------------------
+
+    def rotate_robot_to_start_pos(self, agent, distance, angle1, angle2):
+        self.get_logger().warn(f"rotate to start pos command received")
+        goal = RotateAngle.Goal()
+        drive_goal = DriveDistance.Goal()
+        if self.turned_one_time == False:
+            goal.angle = angle1
+        else:
+            goal.angle = angle2
+            self.turned_second_time = True
+        self.get_logger().warn(f"rotate to start pos command received with angle: {goal.angle}")
+        self.get_logger().warn(f"self.turned_second_time: {self.turned_second_time}")
+        goal.max_rotation_speed = 1.0
+        tb = self.get_turtlebot(agent)
+        rotate_client = tb["rotate"]
+        rotate_client.wait_for_server()
+        send_goal_future = rotate_client.send_goal_async(goal)
+        send_goal_future.add_done_callback(
+            lambda f: self.rotate_robot_to_start_pos_response_callback(f, agent, distance, angle1, angle2)
+        )
+    
+    def rotate_robot_to_start_pos_response_callback(self, future, agent, distance, angle1, angle2):
+        self.get_logger().warn(f"rotate to start pos command in progress")
+        goal_handle = future.result()
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(
+            lambda f: self.rotate_robot_to_start_pos_result_callback(f, agent, distance, angle1, angle2)
+        )
+    
+    def rotate_robot_to_start_pos_result_callback(self, future, agent, distance, angle1, angle2):
+        self.get_logger().warn(f"rotate to start pos command finished")
+        if self.turned_second_time == False:
+            self.get_logger().warn(f"drive forward to start pos command send after rotation")
+            self.move_robot_to_start_pos(agent, distance, angle1, angle2)
         else:
             self.environment.robot_reached_position()
 
-    def _send_only_rotate(self, agent, angle):
-        tb = self._get_turtlebot(agent)
-        if not tb:
-            return
-
-        rotate_client = tb["rotate"]
-        goal = RotateAngle.Goal()
-        goal.angle = angle
-        goal.max_rotation_speed = 1.0
-        rotate_client.wait_for_server()
-        send_goal_future = rotate_client.send_goal_async(goal)
-        send_goal_future.add_done_callback(lambda f: self._only_rotate_goal_response_callback(f, agent))
-
-    def _only_rotate_goal_response_callback(self, future, agent):
+    def move_robot_to_start_pos(self, agent, distance, angle1, angle2):
+        self.get_logger().warn(f"drive forward to start pos command received")
+        goal = DriveDistance.Goal()
+        goal.distance = distance
+        goal.max_translation_speed = 0.2
+        tb = self.get_turtlebot(agent)
+        drive_client = tb["drive"]
+        drive_client.wait_for_server()
+        send_goal_future = drive_client.send_goal_async(goal)
+        send_goal_future.add_done_callback(
+            lambda f: self.move_forward_to_start_pos_response_callback(f, agent, distance, angle1, angle2)
+        )
+        
+    def move_forward_to_start_pos_response_callback(self, future, agent, distance, angle1, angle2):
+        self.get_logger().warn(f"drive forward to start pos command in progress")
         goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().warn(f'Rotate-back goal was rejected for {agent.name}.')
-            self.environment.robot_reached_position()
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(
+            lambda f: self.move_forward_to_start_pos_result_callback(f, agent, distance, angle1, angle2)
+        )
+
+    def move_forward_to_start_pos_result_callback(self, future, agent, distance, angle1, angle2):
+        self.get_logger().warn(f"drive forward to start pos command finished")
+        self.get_logger().warn(f"rotate back to start orientation command send")
+        self.turned_one_time = True
+        self.rotate_robot_to_start_pos(agent, distance, angle1, angle2)
+
+
+    
+    # ------------------------------------
+    # Return to start position command
+    # ------------------------------------
+    def return_to_start_pos(self, agent):
+        tb_name = self.get_turtlebot(agent)["name"]
+        if tb_name not in self.positions or tb_name not in self.start_positions:
+            self.get_logger().warn(f"[{tb_name}] Keine Position oder Startposition verfügbar.(return_to_start_pos)")
             return
 
-        result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(lambda f: self._only_rotate_result_callback(f, agent))
+        current = self.positions[tb_name]
+        start = self.start_positions[tb_name]
 
-    def _only_rotate_result_callback(self, future, agent):
-        result = future.result().result
-        self.get_logger().info(f'Rotate-back complete for {agent.name}.')
-        self.environment.robot_reached_position()
+        cx, cy, cyaw = current["x"], current["y"], current["yaw"]
+        sx, sy, syaw = start["x"], start["y"], start["yaw"]
+
+        dx = sx - cx
+        dy = sy - cy
+        target_angle = math.atan2(dy, dx)
+        rotate1 = target_angle - cyaw
+        distance = math.sqrt(dx*dx + dy*dy)
+        rotate2 = syaw - target_angle
+        self.rotate_robot_to_start_pos(agent, distance, rotate1, rotate2)
+
+
+
     # ------------------------------------
     # Movement wrappers
     # ------------------------------------
     def move_top(self, agent):
         self.environment.robot_is_moving()
-        tb_name = self._get_turtlebot(agent)["name"]
-        self.start_pos = self.positions.get(tb_name, None)
-        self._send_drive_goal(agent, 0.3)
+        self.robot_rotated = False
+        self.robot_should_rotate_back = False
+        self.save_start_pos(agent)
+        self.get_logger().warn(f"drive forward command send")
+        self.move_forward(agent, 0.3, 0.0)
+        self.get_logger().warn(f"function move_top finished")
 
     def move_left(self, agent):
         self.environment.robot_is_moving()
-        tb_name = self._get_turtlebot(agent)["name"]
-        self.start_pos = self.positions.get(tb_name, None)
-        self._send_rotate_then_drive(agent, 1.57, return_after=True)
+        self.robot_rotated = True
+        self.robot_should_rotate_back = False
+        self.save_start_pos(agent)
+        self.get_logger().warn(f"rotate left command send")
+        self.rotate_robot(agent, 0.3, 1.57)
+        self.get_logger().warn(f"function move_left finished")
 
     def move_right(self, agent):
         self.environment.robot_is_moving()
-        tb_name = self._get_turtlebot(agent)["name"]
-        self.start_pos = self.positions.get(tb_name, None)
-        self._send_rotate_then_drive(agent, -1.57, return_after=True)
+        self.robot_rotated = True
+        self.robot_should_rotate_back = False
+        self.save_start_pos(agent)
+        self.get_logger().warn(f"rotate right command send")
+        self.rotate_robot(agent, 0.3, -1.57)
+        self.get_logger().warn(f"function move_right finished")
 
     def move_bottom(self, agent):
         self.environment.robot_is_moving()
-        tb_name = self._get_turtlebot(agent)["name"]
-        self.start_pos = self.positions.get(tb_name, None)
-        self._send_drive_goal(agent, -0.3)
+        self.save_start_pos(agent)
+        self.get_logger().warn(f"move backwards command send")
+        self._send_drive_goal(agent, -0.3, 0.0)
+        self.get_logger().warn(f"function move_bottom finished")
 
     # ------------------------------------
     # Helper: map agent → turtlebot
     # ------------------------------------
-    def _get_turtlebot(self, agent):
+    def get_turtlebot(self, agent):
         tb = self.turtle_bots.get(agent)
         if not tb:
             self.get_logger().error(f"No TurtleBot mapping found for agent {agent.name}")
