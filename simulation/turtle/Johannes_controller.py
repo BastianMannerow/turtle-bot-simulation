@@ -22,13 +22,14 @@ class JohannesController(Node):
 
         self.environment = environment
         self.agent_list = agent_list
-        self.turtle_bots = {}  # {agent: {"name": "tb1", "drive": client, "rotate": client}}
-        self.positions = {}
-        self.start_positions = {}
-        self.current_drive_goal = None
-        self.current_rotate_goal = None
-        self.turned_back = False
-        self.turn_back = False
+        # mappings and state per robot (keyed by tb_name)
+        self.turtle_bots = {}          # {agent: {"name": tb_name, "drive": client, "rotate": client}}
+        self.positions = {}            # {tb_name: {"x", "y", "yaw"}}
+        self.start_positions = {}      # {tb_name: {"x", "y", "yaw"}}
+        self.current_drive_goal = {}   # {tb_name: goal_handle}
+        self.current_rotate_goal = {}  # {tb_name: goal_handle}
+        self.return_phase = {}         # {tb_name: None | "rotate_to_start" | "drive_to_start" | "restore_orientation"}
+        self.return_sequence = {}      # {tb_name: {"distance", "rotate_to_target", "final_orientation"}}
 
 
         # Map each agent to a TurtleBot name (tb1, tb2, tb3, tb4)
@@ -46,6 +47,12 @@ class JohannesController(Node):
                 # Subscribe to odometry topic for every single turtlebot
                 self.create_subscription(Odometry, f"/{tb_name}/odom", lambda msg, a=agent: self.odom_callback(msg, a), qos_profile_sensor_data)
 
+                # initialize per-robot state
+                self.current_drive_goal[tb_name] = None
+                self.current_rotate_goal[tb_name] = None
+                self.return_phase[tb_name] = None
+                self.return_sequence[tb_name] = {}
+
                 self.get_logger().info(f"Mapped agent {agent.name} → {tb_name}")
             else:
                 self.get_logger().warn(f"No TurtleBot available for agent {agent.name} (index {i})")
@@ -56,27 +63,39 @@ class JohannesController(Node):
     # Hazard detection callback
     # ------------------------------------
     def hazard_callback(self, msg, agent):
+        tb_name = self.get_turtlebot(agent)["name"]
+        if self.return_phase.get(tb_name) is not None:
+            return  # Robot is already returning; ignore bumps
+    
         for hazard in msg.detections:
             if hazard.type == 1 and 'bump' in hazard.header.frame_id:
-                tb_name = self.get_turtlebot(agent)["name"]
                 self.get_logger().warn(f"[{tb_name}] Bumper triggered: {hazard.header.frame_id}")
-                # ✅ laufende DRIVE-ACTION abbrechen
-                if self.current_drive_goal is not None:
-                    self.get_logger().warn(f"[{tb_name}] Cancelling current drive goal")
-                    self.current_drive_goal.cancel_goal_async()
-                    self.current_drive_goal = None
+                # Cancel current drive if exists
+                if self.current_drive_goal.get(tb_name) is not None:
+                    try:
+                        self.get_logger().warn(f"[{tb_name}] Cancelling current drive goal")
+                        self.current_drive_goal[tb_name].cancel_goal_async()
+                    except Exception as e:
+                        self.get_logger().error(f"[{tb_name}] Error cancelling drive goal: {e}")
+                    # Keep handle until possibly overwritten by new goal
 
-                # ✅ laufende ROTATE-ACTION abbrechen
-                if self.current_rotate_goal is not None:
-                    self.get_logger().warn(f"[{tb_name}] Cancelling current rotate goal")
-                    self.current_rotate_goal.cancel_goal_async()
-                    self.current_rotate_goal = None
+                # Cancel current rotate if exists
+                if self.current_rotate_goal.get(tb_name) is not None:
+                    try:
+                        self.get_logger().warn(f"[{tb_name}] Cancelling current rotate goal")
+                        self.current_rotate_goal[tb_name].cancel_goal_async()
+                    except Exception as e:
+                        self.get_logger().error(f"[{tb_name}] Error cancelling rotate goal: {e}")
+                    # Keep handle until overwritten
 
-                # ✅ jetzt ist der Roboter "frei" für neue Kommandos
+                rclpy.spin_once(self, timeout_sec=0.05)
+
+                # start return sequence if start pos is saved
                 if tb_name in self.start_positions:
+                    self.return_phase[tb_name] = "rotate_to_start"
                     self.return_to_start_pos(agent)
                 else:
-                    self.get_logger().warn(f"[{tb_name}] Keine gespeicherte Startposition – Rückfahrt nicht möglich.")
+                    self.get_logger().warn(f"[{tb_name}] no saved start position.")
 
     # ------------------------------------
     # Odometry detection callback
@@ -86,9 +105,11 @@ class JohannesController(Node):
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         q = msg.pose.pose.orientation
+
         siny_cosp = 2 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z)
         yaw = math.atan2(siny_cosp, cosy_cosp)
+
         self.positions[tb_name] = {"x": x, "y": y, "yaw": yaw}
 
     def save_start_pos(self, agent):
@@ -96,7 +117,7 @@ class JohannesController(Node):
         timeout = time.time() + 1.0
         while tb_name not in self.positions:
             if time.time() > timeout:
-                self.get_logger().warn(f"[{tb_name}] Odom-Daten nicht rechtzeitig erhalten – Startpose nicht gespeichert.")
+                self.get_logger().warn(f"[{tb_name}] No odom data - cannot store start pos.")
                 return
             rclpy.spin_once(self, timeout_sec=0.05)
 
@@ -110,35 +131,44 @@ class JohannesController(Node):
     def move_forward(self, agent, distance, angle):
         self.get_logger().warn(f"drive forward command received")
         goal = DriveDistance.Goal()
-        goal.distance = distance
+        goal.distance = float(distance)
         goal.max_translation_speed = 0.2
-        tb = self.get_turtlebot(agent)
-        drive_client = tb["drive"]
+
+        drive_client = self.turtle_bots[agent]["drive"]
         drive_client.wait_for_server()
+
         send_goal_future = drive_client.send_goal_async(goal)
-        self.get_logger().warn(f"drive forward goal set")
         send_goal_future.add_done_callback(
             lambda f: self.move_forward_response_callback(f, agent, angle)
         )
 
     def move_forward_response_callback(self, future, agent, angle):
+        tb_name = self.get_turtlebot(agent)["name"]
         self.get_logger().warn(f"drive forward command in progress")
         goal_handle = future.result()
-        self.current_drive_goal = future.result()
+
+        self.current_drive_goal[tb_name] = goal_handle
         get_result_future = goal_handle.get_result_async()
         get_result_future.add_done_callback(
             lambda f: self.move_forward_result_callback(f, agent, angle)
         )
 
     def move_forward_result_callback(self, future, agent, angle):
+        tb_name = self.get_turtlebot(agent)["name"]
         result = future.result()
         if result.status == GoalStatus.STATUS_CANCELED:
             self.get_logger().warn("Move forward command was cancelled, ignoring result callback.")
+            self.current_drive_goal[tb_name] = None
             return
+        self.current_drive_goal[tb_name] = None
         self.get_logger().warn(f"drive forward command finished")
-        if self.turn_back == True:
-            self.turn_back = False
-            self.turned_back = True
+
+        if self.return_phase.get(tb_name) == "drive_to_start":
+            self.return_phase[tb_name] = "restore_orientation"
+            self.perform_final_orientation(agent)
+            return
+        
+        if angle != 0.0:
             self.rotate_robot(agent, 0.0, -angle)
         else:
             self.environment.robot_reached_position()
@@ -151,11 +181,12 @@ class JohannesController(Node):
         self.get_logger().warn(f"rotate command received")
         goal = RotateAngle.Goal()
         self.get_logger().warn(f"angle: {angle}")
-        goal.angle = angle
+        goal.angle = float(angle)
         goal.max_rotation_speed = 1.0
-        tb = self.get_turtlebot(agent)
-        rotate_client = tb["rotate"]
+
+        rotate_client = self.turtle_bots[agent]["rotate"]
         rotate_client.wait_for_server()
+
         send_goal_future = rotate_client.send_goal_async(goal)
         send_goal_future.add_done_callback(
             lambda f: self.rotate_robot_response_callback(f, agent, distance, angle)
@@ -163,36 +194,116 @@ class JohannesController(Node):
 
     def rotate_robot_response_callback(self, future, agent, distance, angle):
         self.get_logger().warn(f"rotate command in progress")
+        tb_name = self.get_turtlebot(agent)["name"]
         goal_handle = future.result()
-        self.current_rotate_goal = future.result()
+
+        self.current_rotate_goal[tb_name] = goal_handle
         get_result_future = goal_handle.get_result_async()
         get_result_future.add_done_callback(
             lambda f: self.rotate_robot_result_callback(f, agent, distance, angle)
         )
         
     def rotate_robot_result_callback(self, future, agent, distance, angle):
+        tb_name = self.get_turtlebot(agent)["name"]
         result = future.result()
         if result.status == GoalStatus.STATUS_CANCELED:
             self.get_logger().warn("Move forward command was cancelled, ignoring result callback.")
+            self.current_rotate_goal[tb_name] = None
             return
+        
+        self.current_rotate_goal[tb_name] = None
         self.get_logger().warn(f"rotate command finished")
-        if self.turned_back == True:
-            self.turned_back = False
+
+        if self.return_phase.get(tb_name) == "rotate_to_start":
+            self.return_phase[tb_name] = "drive_to_start"
+            self.perform_return_drive(agent)
+            return
+        
+        if self.return_phase.get(tb_name) == "restore_orientation":
+            self.get_logger().warn(f"[{tb_name}] Back at start position and orientation restored.")
+            self.return_phase[tb_name] = None
+            self.return_sequence[tb_name] = {}
             self.environment.robot_reached_position()
-        else:
+            return
+        
+        if distance > 0:
             self.get_logger().warn(f"drive forward command send after rotation")
-            self.turn_back = True
             self.move_forward(agent, distance, angle)
-    
+        else:
+            self.environment.robot_reached_position()
+
     # ------------------------------------
     # Movements to return to start position
     # ------------------------------------
 
+    def perform_return_drive(self, agent):
+        tb_name = self.get_turtlebot(agent)["name"]
+        seq = self.return_sequence.get(tb_name, {})
+        distance = seq.get("distance", 0.0)
+        self.get_logger().warn(f"[{tb_name}] Driving back to start position... dist={distance:.3f}")
+        # Important: set phase already (should already be set)
+        self.move_forward(agent, distance, 0.0)
+
+    def perform_final_orientation(self, agent):
+        tb_name = self.get_turtlebot(agent)["name"]
+        seq = self.return_sequence.get(tb_name, {})
+        angle = seq.get("final_orientation", 0.0)
+        self.get_logger().warn(f"[{tb_name}] Restoring final orientation: angle={angle:.3f}")
+        self.rotate_robot(agent, 0.0, angle)
 
     
     # ------------------------------------
     # Return to start position command
     # ------------------------------------
+    def return_to_start_pos(self, agent):
+        tb_name = self.get_turtlebot(agent)["name"]
+
+        if tb_name not in self.start_positions or tb_name not in self.positions:
+            self.get_logger().error(f"[{tb_name}] Cannot return to start – missing odom or start position.")
+            return
+
+        self.get_logger().warn(f"[{tb_name}] Returning to start position...")
+
+        # Compute direction & distance
+        start = self.start_positions[tb_name]
+        current = self.positions[tb_name]
+
+        dx = start["x"] - current["x"]
+        dy = start["y"] - current["y"]
+
+        # Distance
+        distance = math.sqrt(dx*dx + dy*dy)
+
+        # Angle to face the start point
+        target_angle = math.atan2(dy, dx)
+        rotate_to_target = target_angle - current["yaw"]
+
+        # Normalize angle
+        rotate_to_target = math.atan2(math.sin(rotate_to_target), math.cos(rotate_to_target))
+
+        # Angle to restore original orientation
+        final_orientation = start["yaw"] - target_angle
+        final_orientation = math.atan2(math.sin(final_orientation), math.cos(final_orientation))
+
+        # Store state for sequenced return
+        self.return_sequence[tb_name] = {
+            "distance": float(distance),
+            "rotate_to_target": float(rotate_to_target),
+            "final_orientation": float(final_orientation)
+        }
+
+        self.return_phase[tb_name] = "rotate_to_start"
+
+        self.get_logger().warn(
+            f"[{tb_name}] Return movement:"
+            f" rotate_to_target={rotate_to_target:.2f},"
+            f" drive={distance:.2f}m,"
+            f" final_yaw={final_orientation:.2f}"
+        )
+
+        # Start sequence: rotate towards start
+        self.rotate_robot(agent, 0.0, rotate_to_target)
+
 
 
     # ------------------------------------
@@ -200,24 +311,28 @@ class JohannesController(Node):
     # ------------------------------------
     def move_top(self, agent):
         self.environment.robot_is_moving()
+        self.save_start_pos(agent)
         self.get_logger().warn(f"drive forward command send")
         self.move_forward(agent, 0.3, 0.0)
         self.get_logger().warn(f"function move_top finished")
 
     def move_left(self, agent):
         self.environment.robot_is_moving()
+        self.save_start_pos(agent)
         self.get_logger().warn(f"rotate left command send")
         self.rotate_robot(agent, 0.3, 1.57)
         self.get_logger().warn(f"function move_left finished")
 
     def move_right(self, agent):
         self.environment.robot_is_moving()
+        self.save_start_pos(agent)
         self.get_logger().warn(f"rotate right command send")
         self.rotate_robot(agent, 0.3, -1.57)
         self.get_logger().warn(f"function move_right finished")
 
     def move_bottom(self, agent):
         self.environment.robot_is_moving()
+        self.save_start_pos(agent)
         self.get_logger().warn(f"move backwards command send")
         self.rotate_robot(agent, 0.3, 3.14)
         self.get_logger().warn(f"function move_bottom finished")
