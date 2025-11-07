@@ -230,6 +230,7 @@ class JohannesController(Node):
             self.get_logger().warn(f"drive forward command send after rotation")
             self.move_forward(agent, distance, angle)
         else:
+            self.environment.register_bumping(agent)
             self.environment.robot_reached_position()
 
     # ------------------------------------
