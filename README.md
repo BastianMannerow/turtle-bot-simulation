@@ -100,9 +100,6 @@ The module `pyactrFunctionalityExtension` provides:
 - Declarative memory utilities:
   - `get_declarative_memory`, `add_to_declarative_memory`
   - `get_declarative_chunk_type`, `delete_declarative_chunk_type`
-- Chunk construction from Python data structures:
-  - `build_chunkstring_by_tuples(pairs)` to generate ACT-R chunks from
-    `(slot, value)` tuples.
 
 ### Lisp-like agent abstraction and Python adapter layer
 
