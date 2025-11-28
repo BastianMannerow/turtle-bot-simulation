@@ -151,10 +151,13 @@ def production_fired(agent):
     str | None
         Production name if the event corresponds to a "RULE FIRED" entry.
     """
-    event = agent.simulation.current_event
-    if "RULE FIRED: " in event[2]:
-        return event[2].replace("RULE FIRED: ", "")
-    return None
+    try:
+        event = agent.simulation.current_event
+        if "RULE FIRED: " in event[2]:
+            return event[2].replace("RULE FIRED: ", "")
+        return None
+    except:
+        return None
 
 
 def key_pressed(agent_construct):
