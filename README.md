@@ -19,6 +19,8 @@ attach powerful external modules—such as **large language models** or
 robot controllers—as explainable extensions to the core cognitive
 system.
 
+**A detailed, step-by-step tutorial for setting up and extending
+the framework is available in the project Wiki.**
 
 ## Abstract
 
@@ -138,3 +140,10 @@ system—for example by updating chunks or switching to a new goal
 state—thus enabling tight, yet conceptually separated, integration
 between ACT-R theory and extended Python-based functionality.
 
+### Citation
+
+If you use this framework in academic work, please cite it as:
+
+Mannerow, B. (2025). ACT-R Multi-Agent Simulation Framework (Python /
+pyactr). GitHub repository.
+https://github.com/BastianMannerow/actr-multi-agent-simulation
