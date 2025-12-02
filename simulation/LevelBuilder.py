@@ -3,6 +3,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 from simulation.environment.Wall import Wall
 from simulation.environment.FakeWall import FakeWall
 from simulation.environment.DefinitelyAWall import DefinitelyAWall
+from simulation.environment.Target import Target
 
 def build_level(level_type: str, height: int, width: int, agents: Sequence[Any], rng: Optional[random.Random] = None) -> \
         list[list[Any | None]] | None:
@@ -83,6 +84,7 @@ def real_world_environment(agents):
     matrix: List[List[Optional[Any]]] = [[None for _ in range(25)] for _ in range(22)]
     # agent start position
     matrix[20][1] = agents[0]
+    matrix[3][3] = Target()
     # Outside Walls
     # Outside Wall top
     for i in range(25):
