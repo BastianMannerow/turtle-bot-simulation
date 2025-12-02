@@ -43,7 +43,7 @@ class Simulation:
         self.stepper = False
         self.level_type = "Real"
         self.agent_type_config = {
-            "Example": {"count": 1, "print_agent_actions": True}
+            "JohannesAgent": {"count": 1, "print_agent_actions": True}
         }
         self.activate_turtles = True
 

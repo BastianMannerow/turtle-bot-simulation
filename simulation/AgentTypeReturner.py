@@ -1,6 +1,8 @@
 from typing import Any, List, Optional, Tuple
 from agents.Example import Example
 from agents.ExampleAdapter import ExampleAdapter
+from agents.JohannesAgent import JohannesAgent
+from agents.JohannesAgentAdapter import JohannesAgentAdapter
 
 
 class AgentTypeReturner:
@@ -62,11 +64,11 @@ class AgentTypeReturner:
             # Human participants are controlled externally; no ACT-R instance.
             return None
 
-        elif name == "Example":
+        elif name == "JohannesAgent":
             # Runner encapsulates the ACT-R model; adapter bridges sim ↔ agent I/O.
-            runner = Example(actr_environment)
+            runner = JohannesAgent(actr_environment)
             actr_agent = runner.build_agent(agent_id_list)
-            adapter = ExampleAdapter(actr_environment)
+            adapter = JohannesAgentAdapter(actr_environment)
             return runner, actr_agent, adapter
 
         # Keep the message explicit to aid configuration debugging.
