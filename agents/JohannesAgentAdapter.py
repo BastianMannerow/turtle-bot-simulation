@@ -110,6 +110,11 @@ class JohannesAgentAdapter:
         Extend as needed for environment-specific responses.
         """
         pass
+        # when bump is detected, update obstacle chunk on this position to state "solid"
+        # also search for new fastes path to goal with updated obstacle information
+        # after 10 times bump change path finding strategy to safe path (avoid all obstacles without testing them)
+        # naturally forgetting strategy after some time to allow testing obstacles again
+        # then the number of bumps allowed should be reduced since the agent should have learned about this circumstance
 
 
 
@@ -170,7 +175,7 @@ class JohannesAgentAdapter:
                     return (r, c)
         return None
 
-
+'''
     def extending_actr(self):
         """
         Supervises ACT-R during production firings.
@@ -238,3 +243,4 @@ class JohannesAgentAdapter:
         Extend as needed for environment-specific responses.
         """
         pass
+'''
