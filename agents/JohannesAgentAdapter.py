@@ -98,6 +98,97 @@ class JohannesAgentAdapter:
             if obstacles is None:
                 print("Warning: obstacle symbol 'Z' not found in stimuli.")
                 return
+            i=0
+            for obs in obstacles:
+                pyactrFunctionalityExtension.add_to_declarative_memory(self.actr_agent, actr.makechunk(typename="obstacle", row=obs[0], column=obs[1], state="unknown"))
+                production_name = f"remember_obstacle_{i}_request_solid"
+
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {phase}
+                        state   {phase}DecideToContribute
+                        ==>
+                        =g>
+                        isa     {next_phase}
+                        state   {next_phase}start
+                        +retrieval>
+                        isa     obstacle
+                        row     {obs[0]}
+                        column  {obs[1]}
+                        status  solid
+                        """
+                    
+                    actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                    if agent_construct.print_actr_construct_trace:
+                        print(Fore.BLUE + f"{agent_construct.name} Learned a new production: {production_name}" + Style.RESET_ALL)
+
+                production_name = f"remember_obstacle_{i}_request_positive"
+
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {phase}
+                        state   {phase}DecideToContribute
+                        =retrieval>
+                        isa     obstacle
+                        row     {obs[0]}
+                        column  {obs[1]}
+                        status  solid
+                        ==>
+                        =g>
+                        isa     {next_phase}
+                        state   {next_phase}start
+                        """
+                    
+                    actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                    if agent_construct.print_actr_construct_trace:
+                        print(Fore.BLUE + f"{agent_construct.name} Learned a new production: {production_name}" + Style.RESET_ALL)
+
+                production_name = f"remember_obstacle_{i}_request_negative"
+
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {phase}
+                        state   {phase}DecideToContribute
+                        ?retrieval>
+                        state   error
+                        ==>
+                        =g>
+                        isa     {next_phase}
+                        state   {next_phase}start
+                        """
+                    
+                    actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                    if agent_construct.print_actr_construct_trace:
+                        print(Fore.BLUE + f"{agent_construct.name} Learned a new production: {production_name}" + Style.RESET_ALL)
+
+                production_name = f"remember_obstacle_{i}_request_failed"
+
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {phase}
+                        state   {phase}DecideToContribute
+                        ==>
+                        =g>
+                        isa     {next_phase}
+                        state   {next_phase}start
+                        """
+                    
+                    actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                    if agent_construct.print_actr_construct_trace:
+                        print(Fore.BLUE + f"{agent_construct.name} Learned a new production: {production_name}" + Style.RESET_ALL)
+                i += 1
             
             
     def locate_goal(self):
