@@ -87,7 +87,7 @@ class JohannesAgentAdapter:
         actr_agent = self.actr_agent
 
         # Configure ACT-R parameters
-        actr_agent.model_parameters["utility_noise"] = 5  # stochastic exploration
+        actr_agent.model_parameters["utility_noise"] = 0  # stochastic exploration
         actr_agent.model_parameters["baselevel_learning"] = False  # disable base-level activation
 
         # Define goal chunk types (optional, but clarifies agent state structure)
@@ -98,6 +98,7 @@ class JohannesAgentAdapter:
         self.add_init_productions(actr_agent, self.goal_phases[0])
         self.add_path_finding_productions(actr_agent, self.goal_phases[1])
         self.add_moving_productions(actr_agent, self.goal_phases[2])
+        self.add_goal_reached_production(actr_agent, self.goal_phases[3])
         return actr_agent
 
     # ----------------------------------------------------------------------
@@ -124,12 +125,12 @@ class JohannesAgentAdapter:
             name="locate_self",
             string=f"""
                 =g>
-                isa     {phase}
-                state   {phase}Start
+                isa     locate
+                state   locateSelf
                 ==>
                 =g>
                 isa     locate
-                state   locateSelf
+                state   locateobstacles
             """
         )
 
@@ -138,11 +139,11 @@ class JohannesAgentAdapter:
             string=f"""
                 =g>
                 isa     locate
-                state   locateSelf
+                state   locateObstacles
                 ==>
                 =g>
                 isa     locate
-                state   locateObstacles
+                state   locateGoal
             """
         )
 
@@ -151,37 +152,25 @@ class JohannesAgentAdapter:
             string=f"""
                 =g>
                 isa     locate
-                state   locateObstacles
+                state   locateGoal
                 ==>
                 =g>
-                isa     locate
-                state   locateGoal
+                isa     pathFinding
+                state   startPathFinding
             """
         )
 
-        actr_agent.productionstring(
-            name="init_finished",
-            string=f"""
-                =g>
-                isa     locate
-                state   locateGoal
-                ==>
-                =g>
-                isa     path_finding
-                state   StartPathFinding
-            """
-        )
 
     def add_path_finding_productions(self, actr_agent, phase):
         actr_agent.productionstring(
-            name="started_path_finding",
+            name="start_pathfinding",
             string=f"""
                 =g>
-                isa     path_finding
-                state   StartPathFinding
+                isa     pathFinding
+                state   startPathFinding
                 ==>
                 =g>
-                isa     path_finding
+                isa     pathFinding
                 state   fastPath
             """
         )
@@ -190,12 +179,12 @@ class JohannesAgentAdapter:
             name="fast_path",
             string=f"""
                 =g>
-                isa     path_finding
+                isa     pathFinding
                 state   fastPath
                 ==>
                 =g>
                 isa     moving
-                state   StartMoving
+                state   startMoving
             """
         )
 
@@ -203,12 +192,12 @@ class JohannesAgentAdapter:
             name="safe_path",
             string=f"""
                 =g>
-                isa     path_finding
+                isa     pathFinding
                 state   safePath
                 ==>
                 =g>
                 isa     moving
-                state   StartMoving
+                state   startMoving
             """
         )
 
@@ -219,7 +208,7 @@ class JohannesAgentAdapter:
             string=f"""
                 =g>
                 isa     moving
-                state   StartMoving
+                state   startMoving
                 ==>
                 =g>
                 isa     decision
@@ -358,7 +347,7 @@ class JohannesAgentAdapter:
         )
 
         actr_agent.productionstring(
-            name="check_position_if_fake_obstacle",
+            name="check_position_in_front_if_obstacle",
             string=f"""
                 =g>
                 isa     check
@@ -369,7 +358,8 @@ class JohannesAgentAdapter:
                 state   continueMoving
             """
         )
-
+    
+    def add_goal_reached_production(self, actr_agent, phase):
         actr_agent.productionstring(
             name="goal_reached",
             string=f"""
@@ -380,7 +370,7 @@ class JohannesAgentAdapter:
                 state free
                 ==>
                 =g>
-                isa     locate_new_goal
-                state   locateNewGoal
+                isa     locate
+                state   locateGoal
             """
         )

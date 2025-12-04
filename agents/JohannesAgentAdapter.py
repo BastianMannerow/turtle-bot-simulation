@@ -34,9 +34,9 @@ class JohannesAgentAdapter:
         self.last_position = (20, 1)
 
         # Precomputed boundaries relative to the initial center.
-        self.top_row = self.last_position[0] - 20
-        self.bottom_row = self.last_position[0] + 1
-        self.left_column = self.last_position[1] - 1
+        self.top_row = self.last_position[0] - 19
+        self.bottom_row = self.last_position[0]
+        self.left_column = self.last_position[1]
         self.right_column = self.last_position[1] + 23
 
     def _find_symbol_position(self, stimuli, symbol):
@@ -68,37 +68,107 @@ class JohannesAgentAdapter:
         and updates internal state accordingly.
         """
 
-        actr_agent = self.agent_construct.actr_agent
-        prod = pyactrFunctionalityExtension.production_fired(self.agent_construct)
+        self.actr_agent = self.agent_construct.actr_agent
+        self.prod = pyactrFunctionalityExtension.production_fired(self.agent_construct)
 
         # Only process relevant productions
-        if prod not in ("locate_self", "locate_obstacles", "locate_goal", "moveToGoal", "evalUp", "evalDown", "evalRight", "evalLeft", "check_position_if_fake_obstacle", "goal_reached"):
+        if self.prod not in ("locate_self", "locate_obstacles", "locate_goal", "start_pathfinding", "fast_path", "safe_path", "moveToGoal", "evalUp", "evalDown", "evalRight", "evalLeft", "check_position_if_fake_obstacle", "goal_reached"):
             return
 
         # Acquire current visual stimuli from the agent
-        stimuli = self.agent_construct.visual_stimuli
-        print(stimuli)
-
-        if prod == "locate_self":
+        self.stimuli = self.agent_construct.visual_stimuli
+        print(self.stimuli)
+    
+    def locate_self(self):
+        if self.prod == "locate_self":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="locate", state="locateObstacles"))
             # Determine agent's position
-            current_pos = self._find_symbol_position(stimuli, "A")
+            current_pos = self._find_symbol_position(self.stimuli, "A")
             if current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="position", row=current_pos[0], column=current_pos[1]))
+            
+    def locate_obstacles(self):
         obstacles = []
-        if prod == "locate_obstacles":
+        if self.prod == "locate_obstacles":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="locate", state="locateGoal"))
             # Determine obstacles' positions
-            obstacles.append(self._find_symbol_position(stimuli, "Z"))
+            obstacles.append(self._find_symbol_position(self.stimuli, "Z"))
             if obstacles is None:
                 print("Warning: obstacle symbol 'Z' not found in stimuli.")
                 return
-        
-        if prod == "locate_goal":
+            
+            
+    def locate_goal(self):
+        if self.prod == "locate_goal":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="locate", state="startPathFinding"))
             # Determine goal's position
-            goal_pos = self._find_symbol_position(stimuli, "T")
+            goal_pos = self._find_symbol_position(self.stimuli, "T")
             if goal_pos is None:
                 print("Warning: goal symbol 'T' not found in stimuli.")
                 return
+            
+    def start_pathfinding(self):
+        if self.prod == "start_pathfinding":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="path_finding", state="fastPath"))
+            # Start pathfinding process
+            # A* algorithm for fastest path
+            pass
+
+    def a_star_fast_path(self):
+        if self.prod == "fast_path":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="moving", state="startMoving"))
+            # Implement A* algorithm for fastest path
+            pass
+
+    def a_star_safe_path(self):
+        if self.prod == "safe_path":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="moving", state="startMoving"))
+            # Implement A* algorithm for safest path
+            pass
+
+    def moveToGoal(self):
+        if self.prod == "moveToGoal":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="decision", state="decideUpOrDownOrRightOrLeft"))
+            # Move towards goal based on pathfinding
+            pass
+
+    def evalUp(self):
+        if self.prod == "evalUp":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="pending", state="pendingDecision"))
+            # Evaluate upward movement
+            pass
+    
+    def evalDown(self):
+        if self.prod == "evalDown":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="pending", state="pendingDecision"))
+            # Evaluate downward movement
+            pass
+
+    def evalRight(self):
+        if self.prod == "evalRight":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="pending", state="pendingDecision"))
+            # Evaluate rightward movement
+            pass
+
+    def evalLeft(self):
+        if self.prod == "evalLeft":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="pending", state="pendingDecision"))
+            # Evaluate leftward movement
+            pass
+
+    def check_position_in_front_if_obstacle(self):
+        if self.prod == "check_position_in_front_if_obstacle":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="moving", state="continueMoving"))
+            # Check if the position is a fake obstacle
+            pass
+
+    def goal_reached(self):
+        if self.prod == "goal_reached":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename="locate_goal", state="locateGoal"))
+            # Handle goal reached event
+            pass
         
     def on_bump_detected(self):
         """
