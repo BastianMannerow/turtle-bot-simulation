@@ -72,7 +72,7 @@ class JohannesAgentAdapter:
         prod = pyactrFunctionalityExtension.production_fired(self.agent_construct)
 
         # Only process relevant productions
-        if prod not in ("locate_self", "locate_obstacles", "locate_goal", "moveToGoal", "evalUp", "evalDown", "evalRight", "evalLeft", "goal_reached"):
+        if prod not in ("locate_self", "locate_obstacles", "locate_goal", "moveToGoal", "evalUp", "evalDown", "evalRight", "evalLeft", "check_position_if_fake_obstacle", "goal_reached"):
             return
 
         # Acquire current visual stimuli from the agent

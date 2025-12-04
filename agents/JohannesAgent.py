@@ -358,6 +358,19 @@ class JohannesAgentAdapter:
         )
 
         actr_agent.productionstring(
+            name="check_position_if_fake_obstacle",
+            string=f"""
+                =g>
+                isa     check
+                state   checkPosition
+                ==>
+                =g>
+                isa     moving
+                state   continueMoving
+            """
+        )
+
+        actr_agent.productionstring(
             name="goal_reached",
             string=f"""
                 =g>
