@@ -55,12 +55,12 @@ class JohannesAgentAdapter:
         )
 
         # Define reasoning phases
-        self.goal_phases = ["init", "path_finding", "moving"]
+        self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal"]
 
         # Initial goal chunk (starting cognitive state)
         self.initial_goal = actr.chunkstring(string=f"""
             isa     {self.goal_phases[0]}
-            state   {self.goal_phases[0]}Start
+            state   {self.goal_phases[0]}Self
         """)
 
     # ----------------------------------------------------------------------
@@ -96,9 +96,9 @@ class JohannesAgentAdapter:
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])
-        self.add_path_finding_productions(actr_agent, self.goal_phases[1])
+        self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
         self.add_moving_productions(actr_agent, self.goal_phases[2])
-        self.add_goal_reached_production(actr_agent, self.goal_phases[3])
+        self.add_eval_productions(actr_agent, self.goal_phases[3])
         return actr_agent
 
     # ----------------------------------------------------------------------
@@ -122,111 +122,136 @@ class JohannesAgentAdapter:
         - Extend this method to encode actual task behavior.
         """
         actr_agent.productionstring(
-            name="locate_self",
+            name=f"{phase}_self",
             string=f"""
                 =g>
-                isa     locate
-                state   locateSelf
+                isa     {phase}
+                state   {phase}Self
                 ==>
                 =g>
-                isa     locate
-                state   locateobstacles
+                isa     {phase}
+                state   {phase}Obstacles
             """
         )
 
         actr_agent.productionstring(
-            name="locate_obstacles",
+            name=f"{phase}_obstacles",
             string=f"""
                 =g>
-                isa     locate
-                state   locateObstacles
+                isa     {phase}
+                state   {phase}Obstacles
                 ==>
                 =g>
-                isa     locate
-                state   locateGoal
+                isa     {phase}
+                state   {phase}Goal
             """
         )
 
         actr_agent.productionstring(
-            name="locate_goal",
+            name=f"{phase}_goal",
             string=f"""
                 =g>
-                isa     locate
-                state   locateGoal
+                isa     {phase}
+                state   {phase}Goal
                 ==>
                 =g>
-                isa     pathFinding
-                state   startPathFinding
-            """
-        )
-
-
-    def add_path_finding_productions(self, actr_agent, phase):
-        actr_agent.productionstring(
-            name="start_pathfinding",
-            string=f"""
-                =g>
-                isa     pathFinding
-                state   startPathFinding
-                ==>
-                =g>
-                isa     pathFinding
-                state   fastPath
+                isa     {phase}
+                state   {phase}Finished
             """
         )
 
         actr_agent.productionstring(
-            name="fast_path",
+            name=f"{phase}_finished",
             string=f"""
                 =g>
-                isa     pathFinding
-                state   fastPath
+                isa     {phase}
+                state   {phase}Finished
                 ==>
                 =g>
-                isa     moving
-                state   startMoving
+                isa     {self.goal_phases[1]}
+                state   {self.goal_phases[1]}Start
+            """
+        )
+
+    def add_pathfinding_productions(self, actr_agent, phase):
+        actr_agent.productionstring(
+            name=f"{phase}_start_pathfinding",
+            string=f"""
+                =g>
+                isa     {phase}
+                state   {phase}Start
+                ==>
+                =g>
+                isa     {phase}
+                state   {phase}FastPath
             """
         )
 
         actr_agent.productionstring(
-            name="safe_path",
+            name=f"{phase}_fast_path",
             string=f"""
                 =g>
-                isa     pathFinding
-                state   safePath
+                isa     {phase}
+                state   {phase}FastPath
                 ==>
                 =g>
-                isa     moving
-                state   startMoving
+                isa     {phase}
+                state   {phase}FastPathAdapterStart
+            """
+        )
+
+        actr_agent.productionstring(
+            name=f"{phase}_safe_path",
+            string=f"""
+                =g>
+                isa     {phase}
+                state   {phase}SafePath
+                ==>
+                =g>
+                isa     {phase}
+                state   {phase}SafePathAdapterStart
             """
         )
 
     def add_moving_productions(self, actr_agent, phase):
 
         actr_agent.productionstring(
-            name="moveToGoal",
+            name=f"{phase}_move_to_goal",
             string=f"""
                 =g>
-                isa     moving
-                state   startMoving
+                isa     {phase}
+                state   {phase}PathDecisionFinished
                 ==>
                 =g>
-                isa     decision
-                state   decideUpOrDownOrRightOrLeft
+                isa     {phase}
+                state   {phase}NextStep
+            """
+        )
+
+        actr_agent.productionstring(
+            name=f"{phase}_decide_direction",
+            string=f"""
+                =g>
+                isa     {phase}
+                state   {phase}NextStep
+                ==>
+                =g>
+                isa     {phase}
+                state   {phase}NextStepFromQueue
             """
         )
 
         # Either up or down, hold in imaginal which direction
         actr_agent.productionstring(
-            name="moveUp",
+            name=f"{phase}_moveUp",
             string=f"""
                 =g>
-                isa     decision
-                state   decideUp
+                isa     {phase}
+                state   {phase}MoveUp
                 ==>
                 =g>
-                isa     eval
-                state   evalUpNow
+                isa     {self.goal_phases[3]}
+                state   {self.goal_phases[3]}EvalUp
                 +manual>
                 isa _manual
                 cmd press_key
@@ -235,15 +260,15 @@ class JohannesAgentAdapter:
         )
 
         actr_agent.productionstring(
-            name="moveDown",
+            name=f"{phase}_moveDown",
             string=f"""
                 =g>
-                isa     decision
-                state   decideDown
+                isa     {phase}
+                state   {phase}MoveDown
                 ==>
                 =g>
-                isa     eval
-                state   evalDownNow
+                isa     {self.goal_phases[3]}
+                state   {self.goal_phases[3]}EvalDown
                 +manual>
                 isa _manual
                 cmd press_key
@@ -252,15 +277,15 @@ class JohannesAgentAdapter:
         )
 
         actr_agent.productionstring(
-            name="moveRight",
+            name=f"{phase}_moveRight",
             string=f"""
                 =g>
-                isa     decision
-                state   decideRight
+                isa     {phase}
+                state   {phase}MoveRight
                 ==>
                 =g>
-                isa     eval
-                state   evalRightNow
+                isa     {self.goal_phases[3]}
+                state   {self.goal_phases[3]}EvalRight
                 +manual>
                 isa _manual
                 cmd press_key
@@ -269,15 +294,15 @@ class JohannesAgentAdapter:
         )
 
         actr_agent.productionstring(
-            name="moveLeft",
+            name=f"{phase}_moveLeft",
             string=f"""
                 =g>
-                isa     decision
-                state   decideLeft
+                isa     {phase}
+                state   {phase}MoveLeft
                 ==>
                 =g>
-                isa     eval
-                state   evalLeftNow
+                isa     {self.goal_phases[3]}
+                state   {self.goal_phases[3]}EvalLeft
                 +manual>
                 isa _manual
                 cmd press_key
@@ -285,92 +310,81 @@ class JohannesAgentAdapter:
             """
         )
 
+    def add_eval_productions(self, actr_agent, phase):
         # Eval
         actr_agent.productionstring(
-            name="evalUp",
+            name=f"{phase}_evalUp",
             string=f"""
                 =g>
-                isa     eval
-                state   evalUpNow
+                isa     {phase}
+                state   {phase}EvalUp
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     pending
-                state   pendingDecision
+                isa     {phase}Pending
+                state   {phase}PendingEvaluation
             """
         )
 
         actr_agent.productionstring(
-            name="evalDown",
+            name=f"{phase}_evalDown",
             string=f"""
                 =g>
-                isa     eval
-                state   evalDownNow
+                isa     {phase}
+                state   {phase}EvalDown
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     pending
-                state   pendingDecision
+                isa     {phase}Pending
+                state   {phase}PendingDecision
             """
         )
 
         actr_agent.productionstring(
-            name="evalRight",
+            name=f"{phase}_evalRight",
             string=f"""
                 =g>
-                isa     eval
-                state   evalRightNow
+                isa     {phase}
+                state   {phase}EvalRight
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     pending
-                state   pendingDecision
+                isa     {phase}Pending
+                state   {phase}PendingDecision
             """
         )
 
         actr_agent.productionstring(
-            name="evalLeft",
+            name=f"{phase}_evalLeft",
             string=f"""
                 =g>
-                isa     eval
-                state   evalLeftNow
+                isa     {phase}
+                state   {phase}EvalLeft
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     pending
-                state   pendingDecision
+                isa     {phase}Pending
+                state   {phase}PendingDecision
             """
         )
 
+
+    def add_goal_productions(self, actr_agent, phase):
         actr_agent.productionstring(
-            name="check_position_in_front_if_obstacle",
+            name=f"{phase}_reached",
             string=f"""
                 =g>
-                isa     check
-                state   checkPosition
-                ==>
-                =g>
-                isa     moving
-                state   continueMoving
-            """
-        )
-    
-    def add_goal_reached_production(self, actr_agent, phase):
-        actr_agent.productionstring(
-            name="goal_reached",
-            string=f"""
-                =g>
-                isa     success
-                state   GoalReached
+                isa     {phase}
+                state   {phase}Reached
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     locate
-                state   locateGoal
+                isa     {phase}
+                state   {phase}UpdateGoalAndStartPos
             """
         )
