@@ -31,13 +31,13 @@ class JohannesAgentAdapter:
         self.agent_construct = agent_construct
 
         # Initial position of the agent.
-        self.last_position = (20, 1)
+        self.agent_start_position = (20, 1)
 
         # Precomputed boundaries relative to the initial center.
-        self.top_row = self.last_position[0] - 19
-        self.bottom_row = self.last_position[0]
-        self.left_column = self.last_position[1]
-        self.right_column = self.last_position[1] + 23
+        self.top_row = self.agent_start_position[0] - 19
+        self.bottom_row = self.agent_start_position[0]
+        self.left_column = self.agent_start_position[1]
+        self.right_column = self.agent_start_position[1] + 23
 
         self.dynamic_productions = {}
 
@@ -85,11 +85,11 @@ class JohannesAgentAdapter:
     def locate_self(self):
         if self.prod == f"{self.goal_phases[0]}_self":
             # Determine agent's position
-            current_pos = self._find_symbol_position(self.stimuli, "A")
-            if current_pos is None:
+            self.current_pos = self._find_symbol_position(self.stimuli, "A")
+            if self.current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(nameofchunk="Agent" ,typename="self_position", row=current_pos[0], column=current_pos[1]), f"{self.goal_phases[0]}_self")
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "Agent")
             
     def locate_obstacles(self):
         obstacles = []
@@ -109,15 +109,15 @@ class JohannesAgentAdapter:
                     production_string = f"""
                         =g>
                         isa     {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}SolidObstacle
+                        state   {self.goal_phases[5]}SearchForSolidObstacle
                         ==>
                         =g>
                         isa     {self.goal_phases[5]}
                         state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
                         +retrieval>
                         isa     obstacle
-                        row     {obs[0]}
-                        column  {obs[1]}
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
                         status  solid
                         """
                     
@@ -133,8 +133,8 @@ class JohannesAgentAdapter:
                         state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
                         =retrieval>
                         isa     obstacle
-                        row     {obs[0]}
-                        column  {obs[1]}
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
                         status  solid
                         ==>
                         =g>
@@ -162,7 +162,6 @@ class JohannesAgentAdapter:
                     
                     self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
                     self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
-                
                 i += 1
             
     def locate_goal(self):
@@ -172,14 +171,15 @@ class JohannesAgentAdapter:
             if goal_pos is None:
                 print("Warning: goal symbol 'T' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(nameofchunk="Agent" ,typename="goal_position", row=goal_pos[0], column=goal_pos[1]), f"{self.goal_phases[0]}_self")
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "Agent")
 
     def a_star_fast_path(self):
         if self.prod == f"{self.goal_phases[1]}_fast_path":
-            '''Implement A* algorithm for fastest path - getting a list of coordinates for the shortest path
+            '''Implement A* algorithm for fastest path - resulting in a list of coordinates for the shortest path
             for every coordinate retrieve if an solid obstacle is there, if so, safe this coordinate in a list
             and start pathfinding without this coordinate again till no solid obstacle on path is found.
-            Since no solid obstacles are on the path, set the goal to moving phase (phase: f"{self.goal_phases[2]}", state: f"{self.goal_phases[2]}NextStep")'''
+            Since no solid obstacles are on the path, set the goal to moving phase (phase: f"{self.goal_phases[2]}", state: f"{self.goal_phases[2]}PathDecisionFinished")'''
+            goal_pos = pyactrFunctionalityExtension.get_imaginal(self.actr_agent, f"{self.goal_phases[0]}_goal")
             pass
 
     def a_star_safe_path(self):
@@ -199,25 +199,21 @@ class JohannesAgentAdapter:
         if self.prod == "evalUp":
             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
             # Evaluate upward movement
-            pass
     
     def evalDown(self):
         if self.prod == "evalDown":
             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
             # Evaluate downward movement
-            pass
 
     def evalRight(self):
         if self.prod == "evalRight":
             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
             # Evaluate rightward movement
-            pass
 
     def evalLeft(self):
         if self.prod == "evalLeft":
             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
             # Evaluate leftward movement
-            pass
 
     def goal_reached(self):
         if self.prod == "goal_reached":
