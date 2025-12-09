@@ -101,7 +101,7 @@ class JohannesAgentAdapter:
                 return
             i=0
             for obs in obstacles:
-                pyactrFunctionalityExtension.add_to_declarative_memory(self.actr_agent, actr.makechunk(typename="obstacle", row=obs[0], column=obs[1], state="unknown"))
+                pyactrFunctionalityExtension.add_to_declarative_memory(self.actr_agent, actr.makechunk(typename="obstacle", pos_x=obs[0], pos_y=obs[1], state="unknown"))
                 
                 production_name = f"{self.goal_phases[5]}_obstacle_{i}_request_solid"
                 # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
