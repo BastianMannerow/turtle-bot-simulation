@@ -89,7 +89,7 @@ class JohannesAgentAdapter:
             if self.current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "Agent")
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "Imaginal")
             
     def locate_obstacles(self):
         obstacles = []
@@ -171,7 +171,7 @@ class JohannesAgentAdapter:
             if goal_pos is None:
                 print("Warning: goal symbol 'T' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "Agent")
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "Imaginal")
 
     def a_star_fast_path(self):
         if self.prod == f"{self.goal_phases[1]}_fast_path":
