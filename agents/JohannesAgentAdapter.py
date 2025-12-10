@@ -93,7 +93,7 @@ class JohannesAgentAdapter:
             pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "imaginal")
             
     def locate_obstacles(self):
-        obstacles = []
+        self.obstacles = []
         if self.prod == f"{self.goal_phases[0]}_obstacles":
             # Determine obstacles' positions
             obstacles.append(self._find_symbol_position(self.stimuli, "Z"))
@@ -267,16 +267,13 @@ class JohannesAgentAdapter:
             pass
 
     def check_for_obstacles(self):
-        for i in len(self.dynamic_productions//6):
+        for i in range(len(self.dynamic_productions)//6):
             if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_solid_positive":
                 imaginal = pyactrFunctionalityExtension.get_imaginal(self.actr_agent, "imaginal")
                 self.temp_list_of_solid_obstacles.append((obs[0], obs[1]))
                 return
-                
 
             if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_solid_negative":
-                '''Update obstacle chunk on this position to state "not_solid".
-                After this go back do pathfinding an search for new fastest path with updated obstacle information.'''
                 pass
 
             if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_unknown_positive":
@@ -291,7 +288,8 @@ class JohannesAgentAdapter:
 
     def decideDirection(self):
         if self.prod == f"{self.goal_phases[2]}_decide_direction":
-            '''currentpos from imaginal, movement_directions from manual if possible or new variable, self.list_of_coordinates.
+
+            '''current_pos and goal_pos from imaginal, movement_directions from manual if possible or new variable, self.list_of_coordinates.
             Calculate movement directions from currentpos and list_of_coordinates and add to a queue'''
             if move_direction == UP:
                 pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveUp"))
@@ -301,8 +299,13 @@ class JohannesAgentAdapter:
                 pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveRight"))
             elif move_direction == LEFT:
                 pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveLeft"))
+            if current_pos == goal_pos:
+                pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[4]}", state=f"{self.goal_phases[4]}Reached"))
 
-            pass
+    '''get current pos from imaginal and test for obstacle on this position, if so update state to "passable" and continue.'''
+    '''(maybe safe obstacle positions on path and just compare currentpos with this positions, if equal then update state to "passable")'''
+    '''remove coordinate of this obstacle from self.obstacles, if nothing appears just continue with steps'''
+    
 
     def evalUp(self):
         if self.prod == "evalUp":
@@ -327,8 +330,8 @@ class JohannesAgentAdapter:
     def goal_reached(self):
         if self.prod == "goal_reached":
             '''Update current goal position to new start position and current start position to goal position. Than start over again, such that the agent can show that it has learned.'''
+            '''reset variables: self.list_of_coords, self.temp_list_of_solid_obstacles (should be empty), self.obstacles (DO NOT TOUCH - empty at the start of the programm), self.queue_of_movement_commands (should be empty at the goal - FIFO)'''
 
-            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[0]}", state=f"{self.goal_phases[0]}Goal"))
             pass
         
     def on_bump_detected(self):
