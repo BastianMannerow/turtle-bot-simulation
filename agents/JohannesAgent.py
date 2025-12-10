@@ -95,8 +95,8 @@ class JohannesAgentAdapter:
             actr.chunktype(phase, "state")
 
         # Imaginal
-        imaginal = actr_agent.set_goal(name="Imaginal", delay=0)
-        actr_agent.chunktype("Agent", "start_pos_x start_pos_y current_pos_x current_pos_y goal_pos_x goal_pos_y")
+        imaginal = actr_agent.set_goal(name="imaginal", delay=0)
+        actr_agent.chunktype("imaginal", "start_pos_x, start_pos_y, current_pos_x, current_pos_y, goal_pos_x, goal_pos_y, path_coordinate_x, path_coordinate_y")
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])
@@ -179,7 +179,7 @@ class JohannesAgentAdapter:
 
     def add_pathfinding_productions(self, actr_agent, phase):
         actr_agent.productionstring(
-            name=f"{phase}_start_pathfinding",
+            name=f"{phase}_start",
             string=f"""
                 =g>
                 isa     {phase}
@@ -224,7 +224,7 @@ class JohannesAgentAdapter:
             string=f"""
                 =g>
                 isa     {phase}
-                state   {phase}PathDecisionFinished
+                state   {phase}AdapterPathDecisionFinished
                 ==>
                 =g>
                 isa     {phase}
@@ -241,7 +241,7 @@ class JohannesAgentAdapter:
                 ==>
                 =g>
                 isa     {phase}
-                state   {phase}NextStepFromQueue
+                state   {phase}NextStepFromAdapterQueue
             """
         )
 
@@ -386,9 +386,20 @@ class JohannesAgentAdapter:
                 state   {phase}Reached
                 ?manual>
                 state free
+                =Imaginal>
+                isa     Imaginal
+                goal_pos_x =goal_pos_x
+                goal_pos_y =goal_pos_y
+                start_pos_x =start_pos_x
+                start_pos_y =start_pos_y
                 ==>
                 =g>
-                isa     {phase}
-                state   {phase}UpdateGoalAndStartPos
+                isa     {self.goal_phases[1]}
+                state   {self.goal_phases[1]}Start
+                +Imaginal>
+                goal_pos_x =start_pos_x
+                goal_pos_y =start_pos_y
+                start_pos_x =goal_pos_x
+                start_pos_y =goal_pos_y
             """
         )
