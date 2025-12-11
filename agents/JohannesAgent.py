@@ -95,8 +95,9 @@ class JohannesAgentAdapter:
             actr.chunktype(phase, "state")
 
         # Imaginal
-        imaginal = actr_agent.set_goal(name="imaginal", delay=0)
-        actr_agent.chunktype("imaginal", "start_pos_x, start_pos_y, current_pos_x, current_pos_y, goal_pos_x, goal_pos_y, path_coordinate_x, path_coordinate_y")
+        actr_agent.set_goal(name="imaginal1", delay=0)
+        actr_agent.set_goal(name="imaginal2", delay=0) # bennenung TODO
+        actr_agent.chunktype("agent", "start_pos_x, start_pos_y, current_pos_x, current_pos_y, goal_pos_x, goal_pos_y, path_coordinate_x, path_coordinate_y")
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])

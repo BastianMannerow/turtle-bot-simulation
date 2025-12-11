@@ -40,7 +40,7 @@ class Simulation:
         self.speed_factor = 100              # 100 = real-time cognition
         self.print_agent_actions = True
         self.los = 0  # 0 infinity line of sight
-        self.stepper = False
+        self.stepper = True
         self.level_type = "Real"
         self.agent_type_config = {
             "JohannesAgent": {"count": 1, "print_agent_actions": True}

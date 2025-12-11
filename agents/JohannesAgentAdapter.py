@@ -33,7 +33,7 @@ class JohannesAgentAdapter:
         # Initial position of the agent.
         self.agent_start_position = (20, 1)
         pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", start_pos_x=self.agent_start_position[0], start_pos_y=self.agent_start_position[1]), "imaginal")
-
+        self.temporary_path = [] # Tupel which have to be checked
         '''# Precomputed boundaries relative to the initial center.
         self.top_row = self.agent_start_position[0] - 19
         self.bottom_row = self.agent_start_position[0]
@@ -41,6 +41,11 @@ class JohannesAgentAdapter:
         self.right_column = self.agent_start_position[1] + 23'''
 
         self.dynamic_productions = {}
+
+    def generate_path():
+        '''Tupel path generieren, filtern des Paths von leeren Feldern (self.agent_construnct.visual_stimuli = "(-)", agent und goal)
+            jetzt bleiben nur noch Felder mit Obstacle-koordinaten. Hier ACT-R aufrufen, erinnern ob obstacle passable?
+            Nach der Aktion muss die geprüfte kooridnate removed werden. Solange repeaten bis Liste leer, oder Abbruch durch z.B. bump, unbreakable'''
 
     def _find_symbol_position(self, stimuli, symbol):
         """
@@ -90,18 +95,18 @@ class JohannesAgentAdapter:
             if self.current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "imaginal")
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "imaginal")
             
     def locate_obstacles(self):
         self.obstacles = []
         if self.prod == f"{self.goal_phases[0]}_obstacles":
             # Determine obstacles' positions
-            obstacles.append(self._find_symbol_position(self.stimuli, "Z"))
-            if obstacles is None:
+            self.obstacles.append(self._find_symbol_position(self.stimuli, "Z"))
+            if self.obstacles is None:
                 print("Warning: obstacle symbol 'Z' not found in stimuli.")
                 return
             self.i=0
-            for obs in obstacles:
+            for obs in self.obstacles:
                 pyactrFunctionalityExtension.add_to_declarative_memory(self.actr_agent, actr.makechunk(typename="obstacle", pos_x=obs[0], pos_y=obs[1], state="unknown"))
                 
                 production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid"
@@ -112,16 +117,16 @@ class JohannesAgentAdapter:
                         isa     {self.goal_phases[5]}
                         state   {self.goal_phases[5]}SearchForSolidObstacle
                         =imaginal>
-                        path_coordinate_x   =path_coordinate_x
-                        path_coordinate_y   =path_coordinate_y
+                        coordinate_x   {obs[0]}
+                        coordinate_y   {obs[1]}
                         ==>
                         =g>
                         isa     {self.goal_phases[5]}
                         state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
                         +retrieval>
                         isa     obstacle
-                        pos_x     =path_coordinate_x
-                        pos_y     =path_coordinate_y
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
                         status  solid
                         """
                     
@@ -137,8 +142,8 @@ class JohannesAgentAdapter:
                         state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
                         =retrieval>
                         isa     obstacle
-                        pos_x     =path_coordinate_x
-                        pos_y     =path_coordinate_y
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
                         status  solid
                         ==>
                         =g>
@@ -238,7 +243,7 @@ class JohannesAgentAdapter:
             if goal_pos is None:
                 print("Warning: goal symbol 'T' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Goal", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "imaginal")
+            pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="goal", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "imaginal")
 
     def a_star_fast_path(self):
         if self.prod == f"{self.goal_phases[1]}_fast_path":
@@ -246,10 +251,13 @@ class JohannesAgentAdapter:
             Taking into account obstacles with state "solid" as unpassable. (temp_list of coordinates of solid obstacles)
             Set goal to retrieval phase: (phase: f"{self.goal_phases[5]}", state: f"{self.goal_phases[5]}SearchForSolidObstacle")
             to retrieve for every coordinate if an solid obstacle is there.'''
-            self.list_of_coordinates = []  # Result from A* algorithm: List of coordinates (tuple) for the fastest path
             self.temp_list_of_solid_obstacles = []  # Temporary list to store solid obstacles found during retrieval
+
+            '''here A*-algorithm'''
+
+            self.list_of_coordinates = []  # Result from A* algorithm: List of coordinates (tuple) for the fastest path
             for coordinate in self.list_of_coordinates:
-                pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="PathCoordinate", path_coordinate_x=coordinate[0], path_coordinate_y=coordinate[1]), "imaginal")
+                pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="pathCoordinate", path_coordinate_x=coordinate[0], path_coordinate_y=coordinate[1]), "imaginal")
                 pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[5]}", state=f"{self.goal_phases[5]}SearchForSolidObstacle"))
             if len(self.temp_list_of_solid_obstacles) == 0:
                 # No solid obstacles found, proceed to decide direction
@@ -262,6 +270,8 @@ class JohannesAgentAdapter:
     def a_star_safe_path(self):
         if self.prod == f"{self.goal_phases[1]}_safe_path":
             # Implement A* algorithm for safest path
+            chunk = pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal")
+            agent_current_pos_x = chunk["current_pos_x"]
             
             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}PathDecisionFinished"))
             pass
@@ -269,7 +279,7 @@ class JohannesAgentAdapter:
     def check_for_obstacles(self):
         for i in range(len(self.dynamic_productions)//6):
             if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_solid_positive":
-                imaginal = pyactrFunctionalityExtension.get_imaginal(self.actr_agent, "imaginal")
+                '''add this position to the list of temp_solid obstacles'''
                 self.temp_list_of_solid_obstacles.append((obs[0], obs[1]))
                 return
 
@@ -339,14 +349,10 @@ class JohannesAgentAdapter:
         Triggered when the environment signals an impact or blocked movement.
         Extend as needed for environment-specific responses.
         """
-        """
-        Triggered when the environment signals an impact or blocked movement.
-        Extend as needed for environment-specific responses.
-        """
 
         '''If Bump is detected update obstacle chunk on this position to state "solid".
-        After this go back do pathfinding an search for new fastest path with updated obstacle information.
+        After this go back, do pathfinding and search for new fastest path with updated obstacle information.
         After 5 times bump change path finding strategy to safe path (avoid all obstacles without testing them).
         Naturally forgetting strategy after some time to allow testing obstacles again.
         Then the number of bumps allowed should be reduced since the agent should have learned about this circumstance'''
-        pass
+        self.bumpi = True
