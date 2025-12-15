@@ -75,6 +75,7 @@ class JohannesAgentAdapter:
             or len(pyactrFunctionalityExtension.get_imaginal(actr_agent, "imaginal_agent")) == 0
             or len(pyactrFunctionalityExtension.get_imaginal(actr_agent, "path_and_obs_imaginal")) == 0
         ):
+            print("alles leer")
             return
 
         # Only process relevant productions
@@ -90,6 +91,7 @@ class JohannesAgentAdapter:
         imaginal_agent = get_imaginal_agent_chunk(actr_agent)
         path_and_obs_imaginal = get_path_and_obs_imaginal_chunk(actr_agent)
 
+        print("locate_self should be fired now")
         self.locate_self(actr_agent, prod, goal, imaginal_agent, path_and_obs_imaginal)
         self.locate_obstacles()
         self.locate_goal()
@@ -110,16 +112,17 @@ class JohannesAgentAdapter:
         
     
     def locate_self(self, prod, goal, imaginal_agent, path_and_obs_imaginal):
-        if self.prod == f"{self.goal_phases[0]}_self":
+        if prod == f"{self.goal_phases[0]}_self":
+            print("locate_self called")
             # Determine agent's position
             self.current_pos = self._find_symbol_position(self.stimuli, "A")
             print("current_pos: ", self.current_pos)
             if self.current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
-            pyactrFunctionalityExtension.set_imaginal(self.agent_construct, actr.makechunk(typename="agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "imaginal_agent")
-            imaginal = pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent")
-            print("imaginal agent chunk: ", imaginal)
+            imaginal_agent.agent_pos_x = self.current_pos[0]
+            imaginal_agent.agent_pos_y = self.current_pos[1]
+            print("imaginal_agent after locating self: ", imaginal_agent)
 
     def locate_obstacles(self):
         if self.prod == f"{self.goal_phases[0]}_obstacles":

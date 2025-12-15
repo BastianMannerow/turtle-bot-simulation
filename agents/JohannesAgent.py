@@ -88,7 +88,7 @@ class JohannesAgent:
         actr.chunktype("goal", "phase, state, goal_pos_x, goal_pos_y")
 
         # Imaginal Chunk Type for imaginal_agent
-        actr_agent.chunktype("agent", "current_pos_x, current_pos_y, goal_pos_x, goal_pos_y")
+        actr_agent.chunktype("agent", "current_pos_x, current_pos_y")
 
         # Imaginal Chunk Type for path and obstacles
         actr_agent.chunktype("path_and_obs", "obstacle_pos_x, obstacle_pos_y, status, next_pos_x, next_pos_y")
@@ -101,13 +101,14 @@ class JohannesAgent:
         # Initial goal chunk (starting cognitive state)
         self.initial_goal = actr.chunkstring(string=f"""
             isa     goal
-            phase   {self.goal_phases[0]}
-            state   {self.goal_phases[0]}Self
+            phase   init
+            state   init
         """)
 
         # Imaginal
         actr_agent.set_goal(name="imaginal_agent", delay=0)
         actr_agent.set_goal(name="path_and_obs_imaginal", delay=0)
+        actr_agent.set_goal(name="goal", delay=0)
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])
@@ -136,6 +137,26 @@ class JohannesAgent:
           to demonstrate syntax and execution.
         - Extend this method to encode actual task behavior.
         """
+
+        actr_agent.productionstring(
+            name=f"init_start",
+            string=f"""
+                =g>
+                isa     goal
+                phase   init
+                state   init
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}Self
+                +imaginal_agent>
+                isa     agent
+                current_pos_x 0
+                current_pos_y 0
+            """
+        )
+
         actr_agent.productionstring(
             name=f"{phase}_self",
             string=f"""
