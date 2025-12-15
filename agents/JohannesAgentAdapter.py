@@ -31,7 +31,7 @@ class JohannesAgentAdapter:
         self.agent_construct = agent_construct
 
         # Initial position of the agent.
-        self.agent_start_position = (1, 1)
+        #self.agent_start_position = (20, 1)
         #pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", start_pos_x=self.agent_start_position[0], start_pos_y=self.agent_start_position[1]), "imaginal")
         #self.temporary_path = [] # Tupel which have to be checked
         '''# Precomputed boundaries relative to the initial center.

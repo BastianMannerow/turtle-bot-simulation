@@ -2,7 +2,6 @@ from simulation.AgentConstruct import AgentConstruct
 from simulation.environment.Wall import Wall
 from simulation.environment.FakeWall import FakeWall
 from simulation.environment.DefinitelyAWall import DefinitelyAWall
-from simulation.environment.Target import Target
 
 class Middleman:
     """
@@ -171,13 +170,6 @@ class Middleman:
                     # X marks if its definitely a wall
                     elif isinstance(element, DefinitelyAWall):
                         sym = 'X'
-                        new_triggers.append(sym)
-                        frame[index] = {"text": sym, "position": (mi, mj)}
-                        visual_stimuli[i][j] = sym
-                        index += 1
-
-                    elif isinstance(element, Target):
-                        sym = 'T'
                         new_triggers.append(sym)
                         frame[index] = {"text": sym, "position": (mi, mj)}
                         visual_stimuli[i][j] = sym
