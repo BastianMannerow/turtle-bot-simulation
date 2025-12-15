@@ -29,44 +29,36 @@ class JohannesAgentAdapter:
             Reference to the pyACT-R agent object.
         """
         self.agent_construct = agent_construct
-
-        # Initial position of the agent.
-        #self.agent_start_position = (20, 1)
-        #pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="Agent", start_pos_x=self.agent_start_position[0], start_pos_y=self.agent_start_position[1]), "imaginal")
-        #self.temporary_path = [] # Tupel which have to be checked
-        '''# Precomputed boundaries relative to the initial center.
-        self.top_row = self.agent_start_position[0] - 19
-        self.bottom_row = self.agent_start_position[0]
-        self.left_column = self.agent_start_position[1]
-        self.right_column = self.agent_start_position[1] + 23'''
-
+        self.states = ["unknown", "solid", "passable"]
+        self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal", "retrieval"]
         self.dynamic_productions = {}
+
 
     # def generate_path():
     #     '''Tupel path generieren, filtern des Paths von leeren Feldern (self.agent_construnct.visual_stimuli = "(-)", agent und goal)
     #         jetzt bleiben nur noch Felder mit Obstacle-koordinaten. Hier ACT-R aufrufen, erinnern ob obstacle passable?
     #         Nach der Aktion muss die geprüfte kooridnate removed werden. Solange repeaten bis Liste leer, oder Abbruch durch z.B. bump, unbreakable'''
 
-    # def _find_symbol_position(self, stimuli, symbol):
-    #     """
-    #     Locate the agent's position in the current visual stimulus.
+    def _find_symbol_position(self, stimuli, symbol):
+        """
+        Locate the agent's position in the current visual stimulus.
 
-    #     Parameters
-    #     ----------
-    #     stimuli : list[list[str]]
-    #         Two-dimensional representation of the current environment.
-    #     symbol : str
-    #         Identifier symbol for the agent within the matrix.
+        Parameters
+        ----------
+        stimuli : list[list[str]]
+            Two-dimensional representation of the current environment.
+        symbol : str
+            Identifier symbol for the agent within the matrix.
 
-    #     Returns
-    #     -------
-    #     (row, col) tuple or None
-    #     """
-    #     for r, row in enumerate(stimuli):
-    #         for c, cell in enumerate(row):
-    #             if cell == symbol:
-    #                 return (r, c)
-    #     return None
+        Returns
+        -------
+        (row, col) tuple or None
+        """
+        for r, row in enumerate(stimuli):
+            for c, cell in enumerate(row):
+                if cell == symbol:
+                    return (c, r)
+        return None
 
 
     def extending_actr(self):
@@ -76,196 +68,238 @@ class JohannesAgentAdapter:
         and updates internal state accordingly.
         """
 
-        self.actr_agent = self.agent_construct.actr_agent
-        self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal", "retrieval"]
-        self.prod = get_production_fired(self.agent_construct)
+        actr_agent = self.agent_construct
+        prod = get_production_fired(self.agent_construct)
+        if (
+            len(pyactrFunctionalityExtension.get_goal(actr_agent)) == 0
+            or len(pyactrFunctionalityExtension.get_imaginal(actr_agent, "imaginal_agent")) == 0
+            or len(pyactrFunctionalityExtension.get_imaginal(actr_agent, "path_and_obs_imaginal")) == 0
+        ):
+            return
 
         # Only process relevant productions
         if self.prod not in (f"{self.goal_phases[0]}_self", f"{self.goal_phases[0]}_obstacles", f"{self.goal_phases[0]}_goal", f"{self.goal_phases[1]}_fast_path", f"{self.goal_phases[1]}_safe_path", f"{self.goal_phases[3]}_evalUp", f"{self.goal_phases[3]}_evalDown", f"{self.goal_phases[3]}_evalRight", f"{self.goal_phases[3]}_evalLeft", f"{self.goal_phases[4]}_reached"):
             return
-
+        
         # Acquire current visual stimuli from the agent
         self.stimuli = self.agent_construct.visual_stimuli
-        print(self.stimuli)
+        #print(self.stimuli)
+        self.obstacles = []
+
+        goal = get_goal_chunk(actr_agent)
+        imaginal_agent = get_imaginal_agent_chunk(actr_agent)
+        path_and_obs_imaginal = get_path_and_obs_imaginal_chunk(actr_agent)
+
+        self.locate_self(actr_agent, prod, goal, imaginal_agent, path_and_obs_imaginal)
+        self.locate_obstacles()
+        self.locate_goal()
+        self.a_star_fast_path()
+        # self.a_star_safe_path()
+        # self.decideDirection()
+        # self.evalUp()
+        # self.evalDown()
+        # self.evalRight()
+        # self.evalLeft()
+        # self.goal_reached()
+
+        # Putting the modified chunks back into the buffers
+        set_imaginal_agent_chunk(actr_agent, "agent", imaginal_agent)
+        set_path_and_obs_imaginal_chunk(actr_agent, "path_and_obs_imaginal", path_and_obs_imaginal)
+        set_goal_chunk(actr_agent, "goal", goal)
+
+        
     
-    def locate_self(self):
+    def locate_self(self, prod, goal, imaginal_agent, path_and_obs_imaginal):
         if self.prod == f"{self.goal_phases[0]}_self":
             # Determine agent's position
             self.current_pos = self._find_symbol_position(self.stimuli, "A")
+            print("current_pos: ", self.current_pos)
             if self.current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
-            imaginal = pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "imaginal")
-            print(imaginal)
-    # def locate_obstacles(self):
-    #     self.obstacles = []
-    #     if self.prod == f"{self.goal_phases[0]}_obstacles":
-    #         # Determine obstacles' positions
-    #         self.obstacles.append(self._find_symbol_position(self.stimuli, "Z"))
-    #         if self.obstacles is None:
-    #             print("Warning: obstacle symbol 'Z' not found in stimuli.")
-    #             return
-    #         self.i=0
-    #         for obs in self.obstacles:
-    #             pyactrFunctionalityExtension.add_to_declarative_memory(self.actr_agent, actr.makechunk(typename="obstacle", pos_x=obs[0], pos_y=obs[1], state="unknown"))
-                
-    #             production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid"
-    #             # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-    #             if production_name not in self.actr_agent.productions:
-    #                 production_string = f"""
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}SearchForSolidObstacle
-    #                     =imaginal>
-    #                     coordinate_x   {obs[0]}
-    #                     coordinate_y   {obs[1]}
-    #                     ==>
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
-    #                     +retrieval>
-    #                     isa     obstacle
-    #                     pos_x     {obs[0]}
-    #                     pos_y     {obs[1]}
-    #                     status  solid
-    #                     """
-                    
-    #                 self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
-    #                 self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
-                    
-    #             production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid_positive"
-    #             # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-    #             if production_name not in self.actr_agent.productions:
-    #                 production_string = f"""
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
-    #                     =retrieval>
-    #                     isa     obstacle
-    #                     pos_x     {obs[0]}
-    #                     pos_y     {obs[1]}
-    #                     status  solid
-    #                     ==>
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}SolidObstacleRetrieved
-    #                     """
-                    
-    #                 self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
-    #                 self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
-                    
-    #             production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid_negative"
-    #             # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-    #             if production_name not in self.actr_agent.productions:
-    #                 production_string = f"""
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
-    #                     ?retrieval>
-    #                     state   error
-    #                     ==>
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}SolidObstacleRetrievalFailed
-    #                     """
-                    
-    #                 self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
-    #                 self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            pyactrFunctionalityExtension.set_imaginal(self.agent_construct, actr.makechunk(typename="agent", current_pos_x=self.current_pos[0], current_pos_y=self.current_pos[1]), "imaginal_agent")
+            imaginal = pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent")
+            print("imaginal agent chunk: ", imaginal)
 
-    #             production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_unknown"
-    #             # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-    #             if production_name not in self.actr_agent.productions:
-    #                 production_string = f"""
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}SearchForUnknownObstacle
-    #                     =imaginal>
-    #                     current_pos_x     {obs[0]}
-    #                     current_pos_y     {obs[1]}
-    #                     ==>
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
-    #                     +retrieval>
-    #                     isa     obstacle
-    #                     pos_x     {obs[0]}
-    #                     pos_y     {obs[1]}
-    #                     status  unknown
-    #                     """
+    def locate_obstacles(self):
+        if self.prod == f"{self.goal_phases[0]}_obstacles":
+            # Determine obstacles' positions
+            for r, row in enumerate(self.stimuli):
+                for c, cell in enumerate(row):
+                    if cell == "Z":
+                        self.obstacles.append((c, r))
+            if self.obstacles is None:
+                print("Warning: obstacle symbol 'Z' not found in stimuli.")
+                return
+            self.i=0
+            # # print("obstacles: ", self.obstacles)
+            for obs in self.obstacles:
+                pyactrFunctionalityExtension.add_to_declarative_memory(self.agent_construct, actr.chunkstring("obstacle", f"obstacle_pos_x={obs[0]} obstacle_pos_y={obs[1]} status={self.states[0]}"))
+                production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid"
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}SearchForSolidObstacle
+                        =path_and_obs_imaginal>
+                        coordinate_x   {obs[0]}
+                        coordinate_y   {obs[1]}
+                        ==>
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
+                        +retrieval>
+                        isa     obstacle
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
+                        status  solid
+                        """
                     
-    #                 self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
-    #                 self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
-
-    #             production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_unknown_positive"
-    #             # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-    #             if production_name not in self.actr_agent.productions:
-    #                 production_string = f"""
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
-    #                     =retrieval>
-    #                     isa     obstacle
-    #                     pos_x     {obs[0]}
-    #                     pos_y     {obs[1]}
-    #                     status  unknown
-    #                     ==>
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}UnknownObstacleRetrieved
-    #                     """
+                    self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
                     
-    #                 self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
-    #                 self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid_positive"
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
+                        =retrieval>
+                        isa     obstacle
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
+                        status  solid
+                        ==>
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}SolidObstacleRetrieved
+                        """
                     
-    #             production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_unknown_negative"
-    #             # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-    #             if production_name not in self.actr_agent.productions:
-    #                 production_string = f"""
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
-    #                     ?retrieval>
-    #                     state   error
-    #                     ==>
-    #                     =g>
-    #                     isa     {self.goal_phases[5]}
-    #                     state   {self.goal_phases[5]}UnknownObstacleRetrievalFailed
-    #                     """
+                    self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
                     
-    #                 self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
-    #                 self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
-    #             self.i += 1
-            
-    # def locate_goal(self):
-    #     if self.prod == f"{self.goal_phases[0]}_goal":
-    #         # Determine goal's position
-    #         goal_pos = self._find_symbol_position(self.stimuli, "T")
-    #         if goal_pos is None:
-    #             print("Warning: goal symbol 'T' not found in stimuli.")
-    #             return
-    #         pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="goal", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "imaginal")
+                production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_solid_negative"
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
+                        ?retrieval>
+                        state   error
+                        ==>
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}SolidObstacleRetrievalFailed
+                        """
+                    
+                    self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
 
-    # def a_star_fast_path(self):
-    #     if self.prod == f"{self.goal_phases[1]}_fast_path":
-    #         '''Implement A* algorithm for fastest path - resulting in a list of coordinates for the shortest path.
-    #         Taking into account obstacles with state "solid" as unpassable. (temp_list of coordinates of solid obstacles)
-    #         Set goal to retrieval phase: (phase: f"{self.goal_phases[5]}", state: f"{self.goal_phases[5]}SearchForSolidObstacle")
-    #         to retrieve for every coordinate if an solid obstacle is there.'''
-    #         self.temp_list_of_solid_obstacles = []  # Temporary list to store solid obstacles found during retrieval
+                production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_unknown"
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}SearchForUnknownObstacle
+                        =path_and_obs_imaginal>
+                        current_pos_x     {obs[0]}
+                        current_pos_y     {obs[1]}
+                        ==>
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
+                        +retrieval>
+                        isa     obstacle
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
+                        status  unknown
+                        """
+                    
+                    self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
 
-    #         '''here A*-algorithm'''
+                production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_unknown_positive"
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
+                        =retrieval>
+                        isa     obstacle
+                        pos_x     {obs[0]}
+                        pos_y     {obs[1]}
+                        status  unknown
+                        ==>
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}UnknownObstacleRetrieved
+                        """
+                    
+                    self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                    
+                production_name = f"{self.goal_phases[5]}_obstacle_{self.i}_request_unknown_negative"
+                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+                if production_name not in self.actr_agent.productions:
+                    production_string = f"""
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
+                        ?retrieval>
+                        state   error
+                        ==>
+                        =g>
+                        isa     {self.goal_phases[5]}
+                        state   {self.goal_phases[5]}UnknownObstacleRetrievalFailed
+                        """
+                    
+                    self.actr_agent.productionstring(name=production_name, string=production_string, utility=1.0)
+                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+                self.i += 1
+            # # decmem = pyactrFunctionalityExtension.get_declarative_memory(self.agent_construct)
+            # # print("decmem after adding obstacle productions: ", decmem)
 
-    #         self.list_of_coordinates = []  # Result from A* algorithm: List of coordinates (tuple) for the fastest path
-    #         for coordinate in self.list_of_coordinates:
-    #             pyactrFunctionalityExtension.set_imaginal(self.actr_agent, actr.makechunk(typename="pathCoordinate", path_coordinate_x=coordinate[0], path_coordinate_y=coordinate[1]), "imaginal")
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[5]}", state=f"{self.goal_phases[5]}SearchForSolidObstacle"))
-    #         if len(self.temp_list_of_solid_obstacles) == 0:
-    #             # No solid obstacles found, proceed to decide direction
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}PathDecisionFinished"))
-    #         else:
-    #             # Solid obstacles found, restart pathfinding with updated obstacle information
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[1]}", state=f"{self.goal_phases[1]}fast_path"))
-    #         pass
+    def locate_goal(self):
+        if self.prod == f"{self.goal_phases[0]}_goal":
+            # Determine goal's position
+            goal_pos = self._find_symbol_position(self.stimuli, "T")
+            if goal_pos is None:
+                print("Warning: goal symbol 'T' not found in stimuli.")
+                return
+            imaginal_agent = pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent")
+            print("imaginal agent chunk: ", imaginal_agent)
+            #pyactrFunctionalityExtension.set_imaginal(self.agent_construct, actr.makechunk("agent", goal_pos_x=goal_pos[0], goal_pos_y=goal_pos[1]), "imaginal_agent")
+            #imaginal_agent = pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent")
+            #print("imaginal_agent chunk: ", imaginal_agent)
+
+
+    def a_star_fast_path(self):
+        if self.prod == f"{self.goal_phases[1]}_fast_path":
+            '''Implement A* algorithm for fastest path - resulting in a list of coordinates for the shortest path.
+            Taking into account obstacles with state "solid" as unpassable. (temp_list of coordinates of solid obstacles)
+            Set goal to retrieval phase: (phase: f"{self.goal_phases[5]}", state: f"{self.goal_phases[5]}SearchForSolidObstacle")
+            to retrieve for every coordinate if an solid obstacle is there.'''
+            grid = self.stimuli
+            rows = len(grid)
+            cols = len(grid[0])
+            start = pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent")
+            self.temp_list_of_solid_obstacles = []  # Temporary list to store solid obstacles found during retrieval
+            self.list_of_coordinates = []  # Result from A* algorithm: List of coordinates (tuple) for the fastest path
+
+            '''here A*-algorithm'''
+
+            if len(self.temp_list_of_solid_obstacles) == 0:
+                # No solid obstacles found, proceed to decide direction
+                pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}PathDecisionFinished"))
+            else:
+                # Solid obstacles found, restart pathfinding with updated obstacle information
+                pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[1]}", state=f"{self.goal_phases[1]}fast_path"))
+            pass
 
     # def a_star_safe_path(self):
     #     if self.prod == f"{self.goal_phases[1]}_safe_path":
@@ -356,3 +390,30 @@ class JohannesAgentAdapter:
     #     Naturally forgetting strategy after some time to allow testing obstacles again.
     #     Then the number of bumps allowed should be reduced since the agent should have learned about this circumstance'''
     #     self.bumpi = True
+
+class dotdict(dict):
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+def mutablechunk(chunk):
+    """Converts a chunk into a mutable dotdict"""
+    return dotdict(dict(chunk))
+
+def get_goal_chunk(actr_agent):
+    return mutablechunk(pyactrFunctionalityExtension.get_goal(actr_agent).pop())
+
+def get_imaginal_agent_chunk(actr_agent):
+    return mutablechunk(pyactrFunctionalityExtension.get_imaginal(actr_agent, "imaginal_agent").pop())
+
+def get_path_and_obs_imaginal_chunk(actr_agent):
+    return mutablechunk(pyactrFunctionalityExtension.get_imaginal(actr_agent, "path_and_obs_imaginal").pop())
+
+def set_goal_chunk(actr_agent, type, chunk):
+    pyactrFunctionalityExtension.set_goal(actr_agent, actr.makechunk(typename=type, **chunk))
+
+def set_imaginal_agent_chunk(actr_agent, type, chunk):
+    pyactrFunctionalityExtension.set_imaginal(actr_agent, actr.makechunk(typename=type, **chunk), "imaginal_agent")
+
+def set_path_and_obs_imaginal_chunk(actr_agent, type, chunk):
+    pyactrFunctionalityExtension.set_imaginal(actr_agent, actr.makechunk(typename=type, **chunk), "path_and_obs_imaginal")

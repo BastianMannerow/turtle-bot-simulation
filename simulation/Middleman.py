@@ -2,6 +2,8 @@ from simulation.AgentConstruct import AgentConstruct
 from simulation.environment.Wall import Wall
 from simulation.environment.FakeWall import FakeWall
 from simulation.environment.DefinitelyAWall import DefinitelyAWall
+from simulation.environment.Target import Target
+
 
 class Middleman:
     """
@@ -40,11 +42,6 @@ class Middleman:
     def set_game_environment(self, experiment_environment):
         """
         Attach the environment instance after its creation.
-
-        Reasoning
-        ---------
-        The Middleman is initialized before the environment exists,
-        so this delayed wiring ensures proper dependency order.
 
         Parameters
         ----------
@@ -116,17 +113,21 @@ class Middleman:
         rows, cols = len(matrix), len(matrix[0])
 
         # Determine the visible area based on line of sight (LoS)
-        if los == 0 or los > cols or los > rows:
+        # los == 0  → full field of view
+        # los too large → also fall back to full field of view
+        if los == 0 or los >= rows or los >= cols:
             x_los = cols
             y_los = rows
-            off_x = off_y = 0
+            # choose offsets so that mi = i, mj = j → full matrix
+            off_x = c
+            off_y = r
         else:
             x_los = y_los = 2 * los + 1
             off_x = off_y = los
 
         new_triggers = []
         frame = {}
-        visual_stimuli = [['' for _ in range(x_los)] for _ in range(y_los)]
+        visual_stimuli = [["" for _ in range(x_los)] for _ in range(y_los)]
         index = 0
 
         # Scan through the visible window
@@ -137,7 +138,7 @@ class Middleman:
 
                 # Out of bounds
                 if mi < 0 or mi >= rows or mj < 0 or mj >= cols:
-                    visual_stimuli[i][j] = '-'
+                    visual_stimuli[i][j] = "-"
                     continue
 
                 # Inspect all elements in the cell
@@ -154,14 +155,14 @@ class Middleman:
 
                     # Walls and Fake Walls are the same stimulus
                     elif isinstance(element, Wall):
-                         sym = 'Z'
-                         new_triggers.append(sym)
-                         frame[index] = {"text": sym, "position": (mi, mj)}
-                         visual_stimuli[i][j] = sym
-                         index += 1
+                        sym = "Z"
+                        new_triggers.append(sym)
+                        frame[index] = {"text": sym, "position": (mi, mj)}
+                        visual_stimuli[i][j] = sym
+                        index += 1
 
                     elif isinstance(element, FakeWall):
-                        sym = 'Z'
+                        sym = "Z"
                         new_triggers.append(sym)
                         frame[index] = {"text": sym, "position": (mi, mj)}
                         visual_stimuli[i][j] = sym
@@ -169,7 +170,14 @@ class Middleman:
 
                     # X marks if its definitely a wall
                     elif isinstance(element, DefinitelyAWall):
-                        sym = 'X'
+                        sym = "X"
+                        new_triggers.append(sym)
+                        frame[index] = {"text": sym, "position": (mi, mj)}
+                        visual_stimuli[i][j] = sym
+                        index += 1
+
+                    elif isinstance(element, Target):
+                        sym = "T"
                         new_triggers.append(sym)
                         frame[index] = {"text": sym, "position": (mi, mj)}
                         visual_stimuli[i][j] = sym

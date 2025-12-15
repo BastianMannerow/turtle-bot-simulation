@@ -6,6 +6,7 @@ from simulation.AgentConstruct import AgentConstruct
 from simulation.environment.Wall import Wall
 from simulation.environment.FakeWall import FakeWall
 from simulation.environment.DefinitelyAWall import DefinitelyAWall
+from simulation.environment.Target import Target
 
 
 class ExampleGUI:
@@ -49,6 +50,7 @@ class ExampleGUI:
         "wall_fill": "#3B4252",           # regular wall
         "fake_wall_fill": "#5E81AC",      # fake wall
         "def_wall_fill": "#BF616A",       # definitely-a-wall
+        "target_fill": "#EBCB8B",         # target
         "empty_fill": "#10131C",
         "text_fallback": "#D8DEE9",
     }
@@ -177,6 +179,7 @@ class ExampleGUI:
         - DefinitelyAWall
         - Wall
         - FakeWall
+        - Target
         - Empty
         """
         C = self._COLORS
@@ -195,6 +198,10 @@ class ExampleGUI:
         has_fake = any(isinstance(o, FakeWall) for o in cell_objs if o is not None)
         if has_fake:
             return (C["fake_wall_fill"], C["cell_outline"])
+        
+        has_target = any(isinstance(o, Target) for o in cell_objs if o is not None)
+        if has_target:
+            return (C["target_fill"], C["cell_outline"])
 
         return (fill, outline)
 

@@ -57,12 +57,6 @@ class JohannesAgent:
         # Define reasoning phases
         self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal"]
 
-        # Initial goal chunk (starting cognitive state)
-        self.initial_goal = actr.chunkstring(string=f"""
-            isa     {self.goal_phases[0]}
-            state   {self.goal_phases[0]}Self
-        """)
-
     # ----------------------------------------------------------------------
     # Agent construction
     # ----------------------------------------------------------------------
@@ -91,17 +85,33 @@ class JohannesAgent:
         actr_agent.model_parameters["baselevel_learning"] = False  # disable base-level activation
 
         # Define goal chunk types (optional, but clarifies agent state structure)
-        for phase in self.goal_phases:
-            actr.chunktype(phase, "state")
+        actr.chunktype("goal", "phase, state, goal_pos_x, goal_pos_y")
+
+        # Imaginal Chunk Type for imaginal_agent
+        actr_agent.chunktype("agent", "current_pos_x, current_pos_y, goal_pos_x, goal_pos_y")
+
+        # Imaginal Chunk Type for path and obstacles
+        actr_agent.chunktype("path_and_obs", "obstacle_pos_x, obstacle_pos_y, status, next_pos_x, next_pos_y")
+
+        # DecMem Chunk Type
+        actr_agent.chunktype("obstacle", "obstacle_pos_x, obstacle_pos_y, status")
+
+        actr_agent.chunktype("retrieval", "pos_x, pos_y, status, state")
+
+        # Initial goal chunk (starting cognitive state)
+        self.initial_goal = actr.chunkstring(string=f"""
+            isa     goal
+            phase   {self.goal_phases[0]}
+            state   {self.goal_phases[0]}Self
+        """)
 
         # Imaginal
-        actr_agent.set_goal(name="imaginal1", delay=0)
-        actr_agent.set_goal(name="imaginal2", delay=0) # bennenung TODO
-        actr_agent.chunktype("agent", "start_pos_x, start_pos_y, current_pos_x, current_pos_y, goal_pos_x, goal_pos_y, path_coordinate_x, path_coordinate_y")
+        actr_agent.set_goal(name="imaginal_agent", delay=0)
+        actr_agent.set_goal(name="path_and_obs_imaginal", delay=0)
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])
-        # self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
+        self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
         # self.add_moving_productions(actr_agent, self.goal_phases[2])
         # self.add_eval_productions(actr_agent, self.goal_phases[3])
         return actr_agent
@@ -130,11 +140,13 @@ class JohannesAgent:
             name=f"{phase}_self",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}Self
                 ==>
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}Obstacles
             """
         )
@@ -143,67 +155,76 @@ class JohannesAgent:
             name=f"{phase}_obstacles",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}Obstacles
                 ==>
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}Goal
             """
         )
 
-    # #     actr_agent.productionstring(
-    # #         name=f"{phase}_goal",
-    # #         string=f"""
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}Goal
-    # #             ==>
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}Finished
-    # #         """
-    # #     )
+        actr_agent.productionstring(
+            name=f"{phase}_goal",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}Goal
+                ==>
+                =g>
+                isa     {phase}
+                state   {phase}Finished
+            """
+        )
 
-    # #     actr_agent.productionstring(
-    # #         name=f"{phase}_finished",
-    # #         string=f"""
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}Finished
-    # #             ==>
-    # #             =g>
-    # #             isa     {self.goal_phases[1]}
-    # #             state   {self.goal_phases[1]}Start
-    # #         """
-    # #     )
+        actr_agent.productionstring(
+            name=f"{phase}_finished",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}Finished
+                ==>
+                =g>
+                isa     goal
+                phase   {self.goal_phases[1]}
+                state   {self.goal_phases[1]}Start
+            """
+        )
 
-    # # def add_pathfinding_productions(self, actr_agent, phase):
-    # #     actr_agent.productionstring(
-    # #         name=f"{phase}_start",
-    # #         string=f"""
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}Start
-    # #             ==>
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}FastPath
-    # #         """
-    # #     )
+    def add_pathfinding_productions(self, actr_agent, phase):
+        actr_agent.productionstring(
+            name=f"{phase}_start",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}Start
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}FastPath
+            """
+        )
 
-    # #     actr_agent.productionstring(
-    # #         name=f"{phase}_fast_path",
-    # #         string=f"""
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}FastPath
-    # #             ==>
-    # #             =g>
-    # #             isa     {phase}
-    # #             state   {phase}FastPathAdapterStart
-    # #         """
-    # #     )
+        actr_agent.productionstring(
+            name=f"{phase}_fast_path",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}FastPath
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}FastPathAdapterStart
+            """
+        )
 
     # #     actr_agent.productionstring(
     # #         name=f"{phase}_safe_path",
