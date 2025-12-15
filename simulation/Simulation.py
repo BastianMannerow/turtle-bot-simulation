@@ -40,12 +40,12 @@ class Simulation:
         self.speed_factor = 100              # 100 = real-time cognition
         self.print_agent_actions = True
         self.los = 0  # 0 infinity line of sight
-        self.stepper = True
+        self.stepper = False
         self.level_type = "Real"
         self.agent_type_config = {
             "JohannesAgent": {"count": 1, "print_agent_actions": True}
         }
-        self.activate_turtles = True
+        self.activate_turtles = False
 
         # Blocks simulation (for example if turtle is moving)
         self.pause_simulation = False

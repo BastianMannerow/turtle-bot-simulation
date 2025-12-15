@@ -1,7 +1,7 @@
 import pyactr as actr
 
 
-class JohannesAgentAdapter:
+class JohannesAgent:
     """
     Minimal demonstrator agent for the ACT-R architecture.
 
@@ -101,9 +101,9 @@ class JohannesAgentAdapter:
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])
-        self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
-        self.add_moving_productions(actr_agent, self.goal_phases[2])
-        self.add_eval_productions(actr_agent, self.goal_phases[3])
+        # self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
+        # self.add_moving_productions(actr_agent, self.goal_phases[2])
+        # self.add_eval_productions(actr_agent, self.goal_phases[3])
         return actr_agent
 
     # ----------------------------------------------------------------------
@@ -152,255 +152,255 @@ class JohannesAgentAdapter:
             """
         )
 
-        actr_agent.productionstring(
-            name=f"{phase}_goal",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}Goal
-                ==>
-                =g>
-                isa     {phase}
-                state   {phase}Finished
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_goal",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}Goal
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}Finished
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_finished",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}Finished
-                ==>
-                =g>
-                isa     {self.goal_phases[1]}
-                state   {self.goal_phases[1]}Start
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_finished",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}Finished
+    # #             ==>
+    # #             =g>
+    # #             isa     {self.goal_phases[1]}
+    # #             state   {self.goal_phases[1]}Start
+    # #         """
+    # #     )
 
-    def add_pathfinding_productions(self, actr_agent, phase):
-        actr_agent.productionstring(
-            name=f"{phase}_start",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}Start
-                ==>
-                =g>
-                isa     {phase}
-                state   {phase}FastPath
-            """
-        )
+    # # def add_pathfinding_productions(self, actr_agent, phase):
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_start",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}Start
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}FastPath
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_fast_path",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}FastPath
-                ==>
-                =g>
-                isa     {phase}
-                state   {phase}FastPathAdapterStart
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_fast_path",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}FastPath
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}FastPathAdapterStart
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_safe_path",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}SafePath
-                ==>
-                =g>
-                isa     {phase}
-                state   {phase}SafePathAdapterStart
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_safe_path",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}SafePath
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}SafePathAdapterStart
+    # #         """
+    # #     )
 
-    def add_moving_productions(self, actr_agent, phase):
+    # # def add_moving_productions(self, actr_agent, phase):
 
-        actr_agent.productionstring(
-            name=f"{phase}_move_to_goal",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}AdapterPathDecisionFinished
-                ==>
-                =g>
-                isa     {phase}
-                state   {phase}NextStep
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_move_to_goal",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}AdapterPathDecisionFinished
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}NextStep
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_decide_direction",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}NextStep
-                ==>
-                =g>
-                isa     {phase}
-                state   {phase}NextStepFromAdapterQueue
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_decide_direction",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}NextStep
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}NextStepFromAdapterQueue
+    # #         """
+    # #     )
 
-        # Either up or down, hold in imaginal which direction
-        actr_agent.productionstring(
-            name=f"{phase}_moveUp",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}MoveUp
-                ==>
-                =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}EvalUp
-                +manual>
-                isa _manual
-                cmd press_key
-                key W
-            """
-        )
+    # #     # Either up or down, hold in imaginal which direction
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_moveUp",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}MoveUp
+    # #             ==>
+    # #             =g>
+    # #             isa     {self.goal_phases[3]}
+    # #             state   {self.goal_phases[3]}EvalUp
+    # #             +manual>
+    # #             isa _manual
+    # #             cmd press_key
+    # #             key W
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_moveDown",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}MoveDown
-                ==>
-                =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}EvalDown
-                +manual>
-                isa _manual
-                cmd press_key
-                key S
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_moveDown",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}MoveDown
+    # #             ==>
+    # #             =g>
+    # #             isa     {self.goal_phases[3]}
+    # #             state   {self.goal_phases[3]}EvalDown
+    # #             +manual>
+    # #             isa _manual
+    # #             cmd press_key
+    # #             key S
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_moveRight",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}MoveRight
-                ==>
-                =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}EvalRight
-                +manual>
-                isa _manual
-                cmd press_key
-                key D
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_moveRight",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}MoveRight
+    # #             ==>
+    # #             =g>
+    # #             isa     {self.goal_phases[3]}
+    # #             state   {self.goal_phases[3]}EvalRight
+    # #             +manual>
+    # #             isa _manual
+    # #             cmd press_key
+    # #             key D
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_moveLeft",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}MoveLeft
-                ==>
-                =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}EvalLeft
-                +manual>
-                isa _manual
-                cmd press_key
-                key A
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_moveLeft",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}MoveLeft
+    # #             ==>
+    # #             =g>
+    # #             isa     {self.goal_phases[3]}
+    # #             state   {self.goal_phases[3]}EvalLeft
+    # #             +manual>
+    # #             isa _manual
+    # #             cmd press_key
+    # #             key A
+    # #         """
+    # #     )
 
-    def add_eval_productions(self, actr_agent, phase):
-        # Eval
-        actr_agent.productionstring(
-            name=f"{phase}_evalUp",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}EvalUp
-                ?manual>
-                state free
-                ==>
-                =g>
-                isa     {phase}Pending
-                state   {phase}PendingEvaluation
-            """
-        )
+    # # def add_eval_productions(self, actr_agent, phase):
+    # #     # Eval
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_evalUp",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}EvalUp
+    # #             ?manual>
+    # #             state free
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}Pending
+    # #             state   {phase}PendingEvaluation
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_evalDown",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}EvalDown
-                ?manual>
-                state free
-                ==>
-                =g>
-                isa     {phase}Pending
-                state   {phase}PendingDecision
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_evalDown",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}EvalDown
+    # #             ?manual>
+    # #             state free
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}Pending
+    # #             state   {phase}PendingDecision
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_evalRight",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}EvalRight
-                ?manual>
-                state free
-                ==>
-                =g>
-                isa     {phase}Pending
-                state   {phase}PendingDecision
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_evalRight",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}EvalRight
+    # #             ?manual>
+    # #             state free
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}Pending
+    # #             state   {phase}PendingDecision
+    # #         """
+    # #     )
 
-        actr_agent.productionstring(
-            name=f"{phase}_evalLeft",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}EvalLeft
-                ?manual>
-                state free
-                ==>
-                =g>
-                isa     {phase}Pending
-                state   {phase}PendingDecision
-            """
-        )
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_evalLeft",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}EvalLeft
+    # #             ?manual>
+    # #             state free
+    # #             ==>
+    # #             =g>
+    # #             isa     {phase}Pending
+    # #             state   {phase}PendingDecision
+    # #         """
+    # #     )
 
 
-    def add_goal_productions(self, actr_agent, phase):
-        actr_agent.productionstring(
-            name=f"{phase}_reached",
-            string=f"""
-                =g>
-                isa     {phase}
-                state   {phase}Reached
-                ?manual>
-                state free
-                =Imaginal>
-                isa     Imaginal
-                goal_pos_x =goal_pos_x
-                goal_pos_y =goal_pos_y
-                start_pos_x =start_pos_x
-                start_pos_y =start_pos_y
-                ==>
-                =g>
-                isa     {self.goal_phases[1]}
-                state   {self.goal_phases[1]}Start
-                +Imaginal>
-                goal_pos_x =start_pos_x
-                goal_pos_y =start_pos_y
-                start_pos_x =goal_pos_x
-                start_pos_y =goal_pos_y
-            """
-        )
+    # # def add_goal_productions(self, actr_agent, phase):
+    # #     actr_agent.productionstring(
+    # #         name=f"{phase}_reached",
+    # #         string=f"""
+    # #             =g>
+    # #             isa     {phase}
+    # #             state   {phase}Reached
+    # #             ?manual>
+    # #             state free
+    # #             =Imaginal>
+    # #             isa     Imaginal
+    # #             goal_pos_x =goal_pos_x
+    # #             goal_pos_y =goal_pos_y
+    # #             start_pos_x =start_pos_x
+    # #             start_pos_y =start_pos_y
+    # #             ==>
+    # #             =g>
+    # #             isa     {self.goal_phases[1]}
+    # #             state   {self.goal_phases[1]}Start
+    # #             +Imaginal>
+    # #             goal_pos_x =start_pos_x
+    # #             goal_pos_y =start_pos_y
+    # #             start_pos_x =goal_pos_x
+    # #             start_pos_y =goal_pos_y
+    # #         """
+    # #     )
