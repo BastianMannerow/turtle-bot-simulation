@@ -45,6 +45,9 @@ class JohannesAgentAdapter:
         self.obstacles = []  # List of obstacle coordinates (tuples)
         self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal", "retrieval"]
         self.states = ["unknown", "passable", "solid"]
+        self.number_of_bumps = 0
+        self.bumped = False
+        self.move_counter = 0
 
     # def generate_path():
     #     '''Tupel path generieren, filtern des Paths von leeren Feldern (self.agent_construnct.visual_stimuli = "(-)", agent und goal)
@@ -409,21 +412,23 @@ class JohannesAgentAdapter:
     #             After this go back do pathfinding an search for new fastest path with updated obstacle information.'''
     #     pass
 
-    # def decideDirection(self):
-    #     if self.prod == f"{self.goal_phases[2]}_decide_direction":
-
-    #         '''current_pos and goal_pos from imaginal, movement_directions from manual if possible or new variable, self.list_of_coordinates.
-    #         Calculate movement directions from currentpos and list_of_coordinates and add to a queue'''
-    #         if move_direction == UP:
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveUp"))
-    #         elif move_direction == DOWN:
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveDown"))
-    #         elif move_direction == RIGHT:
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveRight"))
-    #         elif move_direction == LEFT:
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveLeft"))
-    #         if current_pos == goal_pos:
-    #             pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[4]}", state=f"{self.goal_phases[4]}Reached"))
+    def decideDirection(self):
+        if self.prod == f"{self.goal_phases[2]}_decide_direction":
+            if self.move_counter <= len(self.planned_path)-1:
+                current_step = self.planned_path[self.move_counter]
+                '''current_pos and goal_pos from imaginal, movement_directions from manual if possible or new variable, self.list_of_coordinates.
+                Calculate movement directions from currentpos and list_of_coordinates and add to a queue'''
+                if move_direction == UP:
+                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveUp"))
+                    self.move_counter += 1
+                elif move_direction == DOWN:
+                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveDown"))
+                elif move_direction == RIGHT:
+                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveRight"))
+                elif move_direction == LEFT:
+                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveLeft"))
+                if current_pos == goal_pos:
+                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[4]}", state=f"{self.goal_phases[4]}Reached"))
 
     # '''get current pos from imaginal and test for obstacle on this position, if so update state to "passable" and continue.'''
     # '''(maybe safe obstacle positions on path and just compare currentpos with this positions, if equal then update state to "passable")'''
@@ -457,18 +462,19 @@ class JohannesAgentAdapter:
 
     #         pass
         
-    # def on_bump_detected(self):
-    #     """
-    #     Triggered when the environment signals an impact or blocked movement.
-    #     Extend as needed for environment-specific responses.
-    #     """
+    def on_bump_detected(self):
+        """
+        Triggered when the environment signals an impact or blocked movement.
+        Extend as needed for environment-specific responses.
+        """
 
-    #     '''If Bump is detected update obstacle chunk on this position to state "solid".
-    #     After this go back, do pathfinding and search for new fastest path with updated obstacle information.
-    #     After 5 times bump change path finding strategy to safe path (avoid all obstacles without testing them).
-    #     Naturally forgetting strategy after some time to allow testing obstacles again.
-    #     Then the number of bumps allowed should be reduced since the agent should have learned about this circumstance'''
-    #     self.bumpi = True
+        '''If Bump is detected update obstacle chunk in decmem on position where the robot should be to state "solid".
+        After this go back, do pathfinding and search for new fastest path with updated obstacle information.
+        After 5 times bump change path finding strategy to safe path (avoid all obstacles without testing them).
+        Naturally forgetting strategy after some time to allow testing obstacles again.
+        Then the number of bumps allowed should be reduced since the agent should have learned about this circumstance'''
+        self.bumped = True
+        self.number_of_bumps += 1
 
 
 class dotdict(dict):
