@@ -55,7 +55,7 @@ class JohannesAgent:
         )
 
         # Define reasoning phases
-        self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal"]
+        self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal", "retrieval"]
 
     # ----------------------------------------------------------------------
     # Agent construction
@@ -114,6 +114,8 @@ class JohannesAgent:
         self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
         self.add_moving_productions(actr_agent, self.goal_phases[2])
         # self.add_eval_productions(actr_agent, self.goal_phases[3])
+        # self.add_goal_productions(actr_agent, self.goal_phases[4])
+        self.add_retrieval_productions(actr_agent, self.goal_phases[5])
         return actr_agent
 
     # ----------------------------------------------------------------------
@@ -144,6 +146,8 @@ class JohannesAgent:
                 isa     goal
                 phase   init
                 state   init
+                ?manual>
+                state   free
                 ==>
                 =g>
                 isa     goal
@@ -251,6 +255,202 @@ class JohannesAgent:
             """
         )
 
+        actr_agent.productionstring(
+            name=f"{phase}_check_obstacles_on_path",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}CheckObstaclesOnPath
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}CheckObstaclesOnPathAdapterStart
+            """
+        )
+
+    def add_retrieval_productions(self, actr_agent, phase):
+        actr_agent.productionstring(
+            name = f"{phase}_obstacle_request_solid",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}SearchForSolidObstacle
+                =path_and_obs_imaginal>
+                isa   path_and_obs
+                check_obstacle_pos_x   =x
+                check_obstacle_pos_y   =y
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveSolidObstacle
+                +retrieval>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  solid
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_solid_positive",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveSolidObstacle
+                =retrieval>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  solid
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}SolidObstacleRetrieved
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_solid_negative",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveSolidObstacle
+                ?retrieval>
+                state   error
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}SolidObstacleRetrievalFailed
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"{phase}_obstacle_request_unknown",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}SearchForUnknownObstacle
+                =path_and_obs_imaginal>
+                isa   path_and_obs
+                check_obstacle_pos_x   =x
+                check_obstacle_pos_y   =y
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveUnknownObstacle
+                +retrieval>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  unknown
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_unknown_positive",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveUnknownObstacle
+                =retrieval>
+                isa     obstacle
+                status  unknown
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}UnknownObstacleRetrieved
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_unknown_negative",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveUnknownObstacle
+                ?retrieval>
+                state   error
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}UnknownObstacleRetrievalFailed
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"{phase}_obstacle_request_passable",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}SearchForPassableObstacle
+                =path_and_obs_imaginal>
+                isa   path_and_obs
+                check_obstacle_pos_x   =x
+                check_obstacle_pos_y   =y
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrievePassableObstacle
+                +retrieval>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  passable
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_passable_positive",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrievePassableObstacle
+                =retrieval>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  passable
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}PassableObstacleRetrieved
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_passable_negative",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrievePassableObstacle
+                ?retrieval>
+                state   error
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}PassableObstacleRetrievalFailed
+                """
+        )
     # #     actr_agent.productionstring(
     # #         name=f"{phase}_safe_path",
     # #         string=f"""
@@ -285,13 +485,15 @@ class JohannesAgent:
             name=f"{phase}_decide_direction",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}NextStep
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}NextStepFromAdapterQueue
             """
         )
@@ -301,14 +503,16 @@ class JohannesAgent:
             name=f"{phase}_eval_after_moveUp",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveUp
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
+                isa     goal
+                phase   {self.goal_phases[3]}
                 state   {self.goal_phases[3]}EvalUp
                 +manual>
                 isa _manual
@@ -321,15 +525,17 @@ class JohannesAgent:
             name=f"{phase}_simply_moveUp",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveUp
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}NextStep
+                isa     goal
+                phase   {self.goal_phases[2]}
+                state   {self.goal_phases[2]}NextStep
                 +manual>
                 isa _manual
                 cmd press_key
@@ -341,14 +547,16 @@ class JohannesAgent:
             name=f"{phase}_eval_after_moveDown",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveDown
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
+                isa     goal
+                phase   {self.goal_phases[3]}
                 state   {self.goal_phases[3]}EvalDown
                 +manual>
                 isa _manual
@@ -361,15 +569,17 @@ class JohannesAgent:
             name=f"{phase}_simply_moveDown",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveDown
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}NextStep
+                isa     goal
+                phase   {self.goal_phases[2]}
+                state   {self.goal_phases[2]}NextStep
                 +manual>
                 isa _manual
                 cmd press_key
@@ -381,14 +591,16 @@ class JohannesAgent:
             name=f"{phase}_eval_after_moveRight",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveRight
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
+                isa     goal
+                phase   {self.goal_phases[3]}
                 state   {self.goal_phases[3]}EvalRight
                 +manual>
                 isa _manual
@@ -401,15 +613,17 @@ class JohannesAgent:
             name=f"{phase}_simply_moveRight",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveRight
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}NextStep
+                isa     goal
+                phase   {self.goal_phases[2]}
+                state   {self.goal_phases[2]}NextStep
                 +manual>
                 isa _manual
                 cmd press_key
@@ -421,14 +635,16 @@ class JohannesAgent:
             name=f"{phase}_eval_after_moveLeft",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveLeft
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
+                isa     goal
+                phase   {self.goal_phases[3]}
                 state   {self.goal_phases[3]}EvalLeft
                 +manual>
                 isa _manual
@@ -441,15 +657,17 @@ class JohannesAgent:
             name=f"{phase}_simply_moveLeft",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}MoveLeft
                 =path_and_obs_imaginal>
                 isa     agent
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
-                isa     {self.goal_phases[3]}
-                state   {self.goal_phases[3]}NextStep
+                isa     goal
+                phase   {self.goal_phases[2]}
+                state   {self.goal_phases[2]}NextStep
                 +manual>
                 isa _manual
                 cmd press_key
@@ -463,13 +681,15 @@ class JohannesAgent:
             name=f"{phase}_evalUp",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}EvalUp
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     {phase}Pending
+                isa     goal
+                phase   {phase}
                 state   {phase}PendingEvaluation
                 =imaginal_agent>
                 isa     agent
@@ -481,13 +701,15 @@ class JohannesAgent:
             name=f"{phase}_evalDown",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}EvalDown
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     {phase}Pending
+                isa     goal
+                phase   {phase}
                 state   {phase}PendingDecision
                 =imaginal_agent>
                 isa     agent
@@ -499,13 +721,15 @@ class JohannesAgent:
             name=f"{phase}_evalRight",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}EvalRight
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     {phase}Pending
+                isa     goal
+                phase   {phase}
                 state   {phase}PendingDecision
                 =imaginal_agent>
                 isa     agent
@@ -517,13 +741,15 @@ class JohannesAgent:
             name=f"{phase}_evalLeft",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}EvalLeft
                 ?manual>
                 state free
                 ==>
                 =g>
-                isa     {phase}Pending
+                isa     goal
+                phase   {phase}
                 state   {phase}PendingDecision
                 =imaginal_agent>
                 isa     agent
@@ -537,13 +763,13 @@ class JohannesAgent:
             name=f"{phase}_reached",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}Reached
-                ?manual>
-                state free
                 ==>
                 =g>
-                isa     {self.goal_phases[1]}
+                isa     goal
+                phase   {self.goal_phases[1]}
                 state   {self.goal_phases[1]}Start
             """
         )

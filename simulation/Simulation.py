@@ -45,7 +45,7 @@ class Simulation:
         self.agent_type_config = {
             "JohannesAgent": {"count": 1, "print_agent_actions": True}
         }
-        self.activate_turtles = False
+        self.activate_turtles = True
 
         # Blocks simulation (for example if turtle is moving)
         self.pause_simulation = False

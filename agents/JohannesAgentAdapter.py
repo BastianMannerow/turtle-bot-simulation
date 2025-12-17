@@ -45,9 +45,12 @@ class JohannesAgentAdapter:
         self.obstacles = []  # List of obstacle coordinates (tuples)
         self.goal_phases = ["locate", "pathfinding", "moving", "eval", "goal", "retrieval"]
         self.states = ["unknown", "passable", "solid"]
+        self.move_directions = [(1,0), (-1,0), (0,1), (0,-1)]
         self.number_of_bumps = 0
         self.bumped = False
         self.move_counter = 0
+        self.path_coord_counter = 0
+        self.temp_solid_obstacle_coords = []
 
     # def generate_path():
     #     '''Tupel path generieren, filtern des Paths von leeren Feldern (self.agent_construnct.visual_stimuli = "(-)", agent und goal)
@@ -92,18 +95,39 @@ class JohannesAgentAdapter:
             or len(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent")) == 0
             or len(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "path_and_obs_imaginal")) == 0
         ):
-            print(pyactrFunctionalityExtension.get_goal(self.agent_construct))
-            print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent"))
-            print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "path_and_obs_imaginal"))
             return
         print(pyactrFunctionalityExtension.get_goal(self.agent_construct))
         print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent"))
         print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "path_and_obs_imaginal"))
 
         # Only process relevant productions
-        if self.prod not in (f"{self.goal_phases[0]}_self", f"{self.goal_phases[0]}_obstacles", f"{self.goal_phases[0]}_goal", f"{self.goal_phases[1]}_fast_path", f"{self.goal_phases[1]}_safe_path", f"{self.goal_phases[3]}_evalUp", f"{self.goal_phases[3]}_evalDown", f"{self.goal_phases[3]}_evalRight", f"{self.goal_phases[3]}_evalLeft", f"{self.goal_phases[4]}_reached"):
-            return
+        allowed_prods = {
+            f"{self.goal_phases[0]}_self",
+            f"{self.goal_phases[0]}_obstacles",
+            f"{self.goal_phases[0]}_goal",
+            f"{self.goal_phases[1]}_fast_path",
+            f"{self.goal_phases[1]}_check_obstacles_on_path",
+            f"{self.goal_phases[1]}_safe_path",
+            f"{self.goal_phases[2]}_decide_direction",
+            f"{self.goal_phases[3]}_evalUp",
+            f"{self.goal_phases[3]}_evalDown",
+            f"{self.goal_phases[3]}_evalRight",
+            f"{self.goal_phases[3]}_evalLeft",
+            f"{self.goal_phases[4]}_reached",
+            f"{self.goal_phases[5]}_obstacle_request_solid",
+            f"{self.goal_phases[5]}_obstacle_request_solid_positive",
+            f"{self.goal_phases[5]}_obstacle_request_solid_negative",
+            f"{self.goal_phases[5]}_obstacle_request_unknown",
+            f"{self.goal_phases[5]}_obstacle_request_unknown_positive",
+            f"{self.goal_phases[5]}_obstacle_request_unknown_negative",
+            f"{self.goal_phases[5]}_obstacle_request_solid",
+            f"{self.goal_phases[5]}_obstacle_request_solid_positive",
+            f"{self.goal_phases[5]}_obstacle_request_solid_negative"
+        }
 
+        if self.prod not in allowed_prods:
+            return
+        
         # Acquire current visual stimuli from the agent
         self.stimuli = self.agent_construct.visual_stimuli
         #print(self.stimuli)
@@ -116,6 +140,10 @@ class JohannesAgentAdapter:
         self.locate_obstacles()
         self.locate_goal(imaginal_agent)
         self.a_star_fast_path(goal, imaginal_agent)
+        self.check_for_obstacles(goal, path_and_obs_imaginal)
+        self.solid_obstacle_retrieved(goal, path_and_obs_imaginal)
+        self.no_solid_obstacle_retrieved(goal)
+        self.decideDirection(goal, imaginal_agent, path_and_obs_imaginal)
 
         # Putting the modified chunks back into the buffers
         set_imaginal_agent_chunk(self.agent_construct, "agent", imaginal_agent)
@@ -131,8 +159,8 @@ class JohannesAgentAdapter:
             if self.current_pos is None:
                 print("Warning: agent symbol 'A' not found in stimuli.")
                 return
-            imaginal_agent.current_pos_x = self.current_pos[0]
-            imaginal_agent.current_pos_y = self.current_pos[1]
+            imaginal_agent.current_pos_x = self.current_pos[1]
+            imaginal_agent.current_pos_y = self.current_pos[0]
 
     def locate_obstacles(self):
         if self.prod == f"{self.goal_phases[0]}_obstacles":
@@ -145,148 +173,152 @@ class JohannesAgentAdapter:
                 print("Warning: obstacle symbol 'Z' not found in stimuli.")
                 return
             i=0
+            #print(self.obstacles)
             for obs in self.obstacles:
                 pyactrFunctionalityExtension.add_to_declarative_memory(self.agent_construct, actr.chunkstring(f"obstacle_{i}", f"isa obstacle obstacle_pos_x {obs[0]} obstacle_pos_y {obs[1]} status {self.states[0]}"))
-                production_name = f"{self.goal_phases[5]}_obstacle_request_solid_{i}"
-                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-                if production_name not in self.actr_agent.productions:
-                    production_string = f"""
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}SearchForSolidObstacle
-                        =path_and_obs_imaginal>
-                        check_obstacle_pos_x   {obs[0]}
-                        check_obstacle_pos_y   {obs[1]}
-                        ==>
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
-                        +retrieval>
-                        isa     obstacle
-                        obstacle_pos_x     {obs[0]}
-                        obstacle_pos_y     {obs[1]}
-                        status  solid
-                        """
-                    pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string, utility=1.0)
-                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            #     production_name = f"{self.goal_phases[5]}_obstacle_request_solid_{i}"
+            #     # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+            #     if production_name not in self.actr_agent.productions:
+            #         production_string = f"""
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}SearchForSolidObstacle
+            #             =path_and_obs_imaginal>
+            #             isa   path_and_obs
+            #             check_obstacle_pos_x   {obs[0]}
+            #             check_obstacle_pos_y   {obs[1]}
+            #             ==>
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
+            #             +retrieval>
+            #             isa     obstacle
+            #             obstacle_pos_x     {obs[0]}
+            #             obstacle_pos_y     {obs[1]}
+            #             status  solid
+            #             """
+            #         pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string)
+            #         self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
 
-                production_name = f"{self.goal_phases[5]}_obstacle_request_solid_positive_{i}"
-                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-                if production_name not in self.actr_agent.productions:
-                    production_string = f"""
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
-                        =retrieval>
-                        isa     obstacle
-                        obstacle_pos_x     {obs[0]}
-                        obstacle_pos_y     {obs[1]}
-                        status  solid
-                        ==>
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}SolidObstacleRetrieved
-                        """
+            #     production_name = f"{self.goal_phases[5]}_obstacle_request_solid_positive_{i}"
+            #     # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+            #     if production_name not in self.actr_agent.productions:
+            #         production_string = f"""
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
+            #             =retrieval>
+            #             isa     obstacle
+            #             obstacle_pos_x     {obs[0]}
+            #             obstacle_pos_y     {obs[1]}
+            #             status  solid
+            #             ==>
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}SolidObstacleRetrieved
+            #             """
                     
-                    pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string, utility=1.0)
-                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            #         pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string)
+            #         self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
                     
-                production_name = f"{self.goal_phases[5]}_obstacle_request_solid_negative_{i}"
-                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-                if production_name not in self.actr_agent.productions:
-                    production_string = f"""
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
-                        ?retrieval>
-                        state   error
-                        ==>
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}SolidObstacleRetrievalFailed
-                        """
+            #     production_name = f"{self.goal_phases[5]}_obstacle_request_solid_negative_{i}"
+            #     # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+            #     if production_name not in self.actr_agent.productions:
+            #         production_string = f"""
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}StartToRetrieveSolidObstacle
+            #             ?retrieval>
+            #             state   error
+            #             ==>
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}SolidObstacleRetrievalFailed
+            #             """
                     
-                    pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string, utility=1.0)
-                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            #         pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string)
+            #         self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
 
-                production_name = f"{self.goal_phases[5]}_obstacle_request_unknown_{i}"
-                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-                if production_name not in self.actr_agent.productions:
-                    production_string = f"""
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}SearchForUnknownObstacle
-                        =path_and_obs_imaginal>
-                        check_obstacle_pos_x     {obs[0]}
-                        check_obstacle_pos_y     {obs[1]}
-                        ==>
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
-                        +retrieval>
-                        isa     obstacle
-                        obstacle_pos_x     {obs[0]}
-                        obstacle_pos_y     {obs[1]}
-                        status  unknown
-                        """
+            #     production_name = f"{self.goal_phases[5]}_obstacle_request_unknown_{i}"
+            #     # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+            #     if production_name not in self.actr_agent.productions:
+            #         production_string = f"""
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}SearchForUnknownObstacle
+            #             =path_and_obs_imaginal>
+            #             isa   path_and_obs
+            #             check_obstacle_pos_x     {obs[0]}
+            #             check_obstacle_pos_y     {obs[1]}
+            #             ==>
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
+            #             +retrieval>
+            #             isa     obstacle
+            #             obstacle_pos_x     {obs[0]}
+            #             obstacle_pos_y     {obs[1]}
+            #             status  unknown
+            #             """
                     
-                    pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string, utility=1.0)
-                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            #         pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string)
+            #         self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
 
-                production_name = f"{self.goal_phases[5]}_obstacle_request_unknown_positive_{i}"
-                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-                if production_name not in self.actr_agent.productions:
-                    production_string = f"""
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
-                        =retrieval>
-                        isa     obstacle
-                        obstacle_pos_x     {obs[0]}
-                        obstacle_pos_y     {obs[1]}
-                        status  unknown
-                        ==>
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}UnknownObstacleRetrieved
-                        """
+            #     production_name = f"{self.goal_phases[5]}_obstacle_request_unknown_positive_{i}"
+            #     # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+            #     if production_name not in self.actr_agent.productions:
+            #         production_string = f"""
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
+            #             =retrieval>
+            #             isa     obstacle
+            #             obstacle_pos_x     {obs[0]}
+            #             obstacle_pos_y     {obs[1]}
+            #             status  unknown
+            #             ==>
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}UnknownObstacleRetrieved
+            #             """
                     
-                    pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string, utility=1.0)
-                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            #         pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string)
+            #         self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
                     
-                production_name = f"{self.goal_phases[5]}_obstacle_request_unknown_negative_{i}"
-                # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
-                if production_name not in self.actr_agent.productions:
-                    production_string = f"""
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
-                        ?retrieval>
-                        state   error
-                        ==>
-                        =g>
-                        isa     goal
-                        phase   {self.goal_phases[5]}
-                        state   {self.goal_phases[5]}UnknownObstacleRetrievalFailed
-                        """
+            #     production_name = f"{self.goal_phases[5]}_obstacle_request_unknown_negative_{i}"
+            #     # CRUCIAL! Skip if the production already exists. Otherwise, the utility will be overwritten!
+            #     if production_name not in self.actr_agent.productions:
+            #         production_string = f"""
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}StartToRetrieveUnknownObstacle
+            #             ?retrieval>
+            #             state   error
+            #             ==>
+            #             =g>
+            #             isa     goal
+            #             phase   {self.goal_phases[5]}
+            #             state   {self.goal_phases[5]}UnknownObstacleRetrievalFailed
+            #             """
                     
-                    pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string, utility=1.0)
-                    self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
-                i += 1
-            # print("after adding all productions: ", pyactrFunctionalityExtension.get_all_productions(self.agent_construct))
-            # decmem = pyactrFunctionalityExtension.get_declarative_memory(self.agent_construct)
-            # print("decmem: ", decmem)
+            #         pyactrFunctionalityExtension.add_production(self.agent_construct, production_name, production_string)
+            #         self.dynamic_productions[production_name] = 0.0 # Initially 0, because no utility was learned.
+            #     i += 1
+            # # print("len von dynamic_productions: ", len(self.dynamic_productions))
+            # # print("after adding all productions: ", pyactrFunctionalityExtension.get_all_productions(self.agent_construct))
+            # # decmem = pyactrFunctionalityExtension.get_declarative_memory(self.agent_construct)
+            # # print("decmem: ", decmem)
             
     def locate_goal(self, imaginal_agent):
         if self.prod == f"{self.goal_phases[0]}_goal":
@@ -295,8 +327,8 @@ class JohannesAgentAdapter:
             if goal_pos is None:
                 print("Warning: goal symbol 'T' not found in stimuli.")
                 return
-            imaginal_agent.goal_pos_x = goal_pos[0]
-            imaginal_agent.goal_pos_y = goal_pos[1]
+            imaginal_agent.goal_pos_x = goal_pos[1]
+            imaginal_agent.goal_pos_y = goal_pos[0]
             
 
     def a_star_fast_path(self, goal, imaginal_agent):
@@ -306,14 +338,16 @@ class JohannesAgentAdapter:
             cols = len(grid[0])
 
             BLOCKED = {"X"}
+            
+            externally_blocked = set(getattr(self, "solid_obstacle_coords", []))
 
-            start_pos = (int(f"{imaginal_agent.current_pos_y}"), int(f"{imaginal_agent.current_pos_x}"))
-            goal_pos = (int(f"{imaginal_agent.goal_pos_y}"), int(f"{imaginal_agent.goal_pos_x}"))
+            start_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
+            goal_pos = (int(f"{imaginal_agent.goal_pos_x}"), int(f"{imaginal_agent.goal_pos_y}"))
+            print(start_pos)
+            print(goal_pos)
             
             def heuristic(a, b):
                 return abs(a[0] - b[0]) + abs(a[1] - b[1])
-            
-            directions = [(1,0), (-1,0), (0,1), (0,-1)]
 
             open_set = []
             heapq.heappush(open_set, (0, start_pos))
@@ -335,13 +369,13 @@ class JohannesAgentAdapter:
 
                     self.planned_path = path
                     print("Planned Path: ", self.planned_path)
-                    goal.phase = f"{self.goal_phases[2]}"
-                    goal.state = f"{self.goal_phases[2]}AdapterPathDecisionFinished"
+                    goal.phase = f"{self.goal_phases[1]}"
+                    goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
                     return
 
                 cx, cy = current
 
-                for dx, dy in directions:
+                for dx, dy in self.move_directions:
                     nx, ny = cx + dx, cy + dy
 
                     if not (0 <= nx < cols and 0 <= ny < rows):
@@ -351,8 +385,13 @@ class JohannesAgentAdapter:
                     if grid[ny][nx] in BLOCKED:
                         continue
 
-                    tentative_g = g_score[current] + 1
                     neighbor = (nx, ny)
+                    
+                    if neighbor in externally_blocked:
+                        continue
+
+                    tentative_g = g_score[current] + 1
+                    
 
                     if neighbor not in g_score or tentative_g < g_score[neighbor]:
                         g_score[neighbor] = tentative_g
@@ -392,48 +431,119 @@ class JohannesAgentAdapter:
     #         pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}PathDecisionFinished"))
     #         pass
 
-    # def check_for_obstacles(self):
-    #     for i in range(len(self.dynamic_productions)//6):
-    #         if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_solid_positive":
-    #             '''add this position to the list of temp_solid obstacles'''
-    #             self.temp_list_of_solid_obstacles.append((obs[0], obs[1]))
-    #             return
+    def check_for_obstacles(self, goal, path_and_obs_imaginal):
+        if self.prod == f"{self.goal_phases[1]}_check_obstacles_on_path":
+            print("adapter check for obstacles started")
+            
+            # clean up path to get only coordinates with obstacles for retrieval
+            obstacles = {'Z', 'X'}
 
-    #         if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_solid_negative":
-    #             pass
+            path_with_obstacles = [
+                (x, y)
+                for (x, y) in self.planned_path
+                if self.stimuli[y][x] in obstacles
+            ]
 
-    #         if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_unknown_positive":
-    #             '''Update obstacle chunk on this position to state "unknown".
-    #             After this go back do pathfinding an search for new fastest path with updated obstacle information.'''
-    #             pass
+            if self.path_coord_counter <= len(path_with_obstacles)-1:
+                check_obstacle_path_coord = path_with_obstacles[self.path_coord_counter]
+                print("current planned path step: ", check_obstacle_path_coord)
+                goal.phase = f"{self.goal_phases[5]}"
+                goal.state = f"{self.goal_phases[5]}SearchForSolidObstacle"
+                path_and_obs_imaginal.check_obstacle_pos_x = check_obstacle_path_coord[0]
+                path_and_obs_imaginal.check_obstacle_pos_y = check_obstacle_path_coord[1]
+                #print("after adding all productions: ", pyactrFunctionalityExtension.get_all_productions(self.agent_construct))
+            elif self.temp_solid_obstacle_coords == None or len(self.temp_solid_obstacle_coords) == 0:
+                print("set goal to move to goal")
+                goal.phase = f"{self.goal_phases[2]}"
+                goal.state = f"{self.goal_phases[2]}AdapterPathDecisionFinished"
+            else:
+                goal.phase = f"{self.goal_phases[1]}"
+                goal.state = f"{self.goal_phases[1]}FastPath"
+                self.temp_solid_obstacle_coords = []
 
-    #         if self.prod == f"{self.goal_phases[5]}_obstacle_{i}_request_unknown_negative":
-    #             '''Update obstacle chunk on this position to state "unknown".
-    #             After this go back do pathfinding an search for new fastest path with updated obstacle information.'''
-    #     pass
 
-    def decideDirection(self):
+    def solid_obstacle_retrieved(self, goal, path_and_obs_imaginal):
+        if self.prod == f"{self.goal_phases[5]}_obstacle_request_solid_positive":
+            solid_obstacle_coord = (path_and_obs_imaginal.check_obstacle_pos_x, path_and_obs_imaginal.check_obstacle_pos_y)
+            self.solid_obstacle_coords.append(solid_obstacle_coord)
+            self.path_coord_counter += 1
+            goal.phase = f"{self.goal_phases[1]}"
+            goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
+
+    def no_solid_obstacle_retrieved(self, goal):
+        if self.prod == f"{self.goal_phases[5]}_obstacle_request_solid_negative":
+            self.path_coord_counter += 1
+            goal.phase = f"{self.goal_phases[1]}"
+            goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
+
+
+    def decideDirection(self, goal, imaginal_agent, path_and_obs_imaginal):
         if self.prod == f"{self.goal_phases[2]}_decide_direction":
-            if self.move_counter <= len(self.planned_path)-1:
-                current_step = self.planned_path[self.move_counter]
+            print("adapter decide direction started")
+            if self.move_counter <= len(self.planned_path):
+                print("move counter: ", self.move_counter)
+                current_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}")) # y, x
+                goal_pos = (int(f"{imaginal_agent.goal_pos_x}"), int(f"{imaginal_agent.goal_pos_y}")) # y, x
+                print("current pos: ", current_pos)
+                print("goal_pos: ", goal_pos)
+                print("next step: ", self.planned_path[self.move_counter])
+                current_step = self.planned_path[self.move_counter] # y, x
+
+                direction_map = {
+                    (1, 0): "RIGHT",
+                    (-1, 0): "LEFT",
+                    (0, 1): "UP",
+                    (0, -1): "DOWN"
+                }
+
+                direction = (current_step[0] - current_pos[0], current_step[1] - current_pos[1])
+                print("calculated direction: ", direction)
+
+                move_direction = direction_map.get(direction)
+                print("decided move direction: ", move_direction)
+                print("current_pos[0]: ", current_pos[0])
+                print("current_pos[1]: ", current_pos[1])
+                print("imaginal_agent.current_pos_x: ", imaginal_agent.current_pos_x)
+                print("imaginal_agent.current_pos_y: ", imaginal_agent.current_pos_y)
+                
                 '''current_pos and goal_pos from imaginal, movement_directions from manual if possible or new variable, self.list_of_coordinates.
                 Calculate movement directions from currentpos and list_of_coordinates and add to a queue'''
-                if move_direction == UP:
-                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveUp"))
-                    self.move_counter += 1
-                elif move_direction == DOWN:
-                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveDown"))
-                elif move_direction == RIGHT:
-                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveRight"))
-                elif move_direction == LEFT:
-                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}MoveLeft"))
                 if current_pos == goal_pos:
-                    pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[4]}", state=f"{self.goal_phases[4]}Reached"))
-
-    # '''get current pos from imaginal and test for obstacle on this position, if so update state to "passable" and continue.'''
-    # '''(maybe safe obstacle positions on path and just compare currentpos with this positions, if equal then update state to "passable")'''
-    # '''remove coordinate of this obstacle from self.obstacles, if nothing appears just continue with steps'''
-    
+                    print("GOAL REACHED")
+                    goal.phase = f"{self.goal_phases[4]}"
+                    goal.state = f"{self.goal_phases[4]}Reached"
+                elif move_direction == "UP":
+                    goal.phase = f"{self.goal_phases[2]}"
+                    goal.state = f"{self.goal_phases[2]}MoveUp"
+                    path_and_obs_imaginal.next_pos_might_be_obstacle = "false"
+                    temp_current_pos = (current_pos[0], current_pos[1] - 1)
+                    imaginal_agent.current_pos_y = str(temp_current_pos[1])
+                    self.move_counter += 1
+                elif move_direction == "DOWN":
+                    goal.phase = f"{self.goal_phases[2]}"
+                    goal.state = f"{self.goal_phases[2]}MoveDown"
+                    path_and_obs_imaginal.next_pos_might_be_obstacle = "false"
+                    temp_current_pos = (current_pos[0], current_pos[1] + 1)
+                    imaginal_agent.current_pos_y = str(temp_current_pos[1])
+                    self.move_counter += 1
+                elif move_direction == "RIGHT":
+                    goal.phase = f"{self.goal_phases[2]}"
+                    goal.state = f"{self.goal_phases[2]}MoveRight"
+                    path_and_obs_imaginal.next_pos_might_be_obstacle = "false"
+                    temp_current_pos = (current_pos[0] + 1, current_pos[1])
+                    imaginal_agent.current_pos_x = str(temp_current_pos[0])
+                    self.move_counter += 1
+                elif move_direction == "LEFT":
+                    goal.phase = f"{self.goal_phases[2]}"
+                    goal.state = f"{self.goal_phases[2]}MoveLeft"
+                    path_and_obs_imaginal.next_pos_might_be_obstacle = "false"
+                    temp_current_pos = (current_pos[0] - 1, current_pos[1])
+                    imaginal_agent.current_pos_x = str(temp_current_pos[0])
+                    self.move_counter += 1
+                else:
+                    print("current pos: ", current_pos)
+                    print("goal_pos: ", goal_pos)
+                    print("current_pos != goal_pos")
 
     # def evalUp(self):
     #     if self.prod == "evalUp":
