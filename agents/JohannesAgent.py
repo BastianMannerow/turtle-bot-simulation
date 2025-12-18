@@ -766,10 +766,20 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}Reached
+                =imaginal_agent>
+                start_pos_x =start_x
+                start_pos_y =start_y
+                goal_pos_x =goal_x
+                goal_pos_y =goal_y
                 ==>
                 =g>
                 isa     goal
                 phase   {self.goal_phases[1]}
                 state   {self.goal_phases[1]}Start
+                =imaginal_agent>
+                start_pos_x =goal_x
+                start_pos_y =goal_y
+                goal_pos_x =start_x
+                goal_pos_y =start_y
             """
         )

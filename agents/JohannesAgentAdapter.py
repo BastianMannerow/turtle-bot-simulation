@@ -144,7 +144,7 @@ class JohannesAgentAdapter:
         self.solid_obstacle_retrieved(goal, path_and_obs_imaginal)
         self.no_solid_obstacle_retrieved(goal)
         self.decideDirection(goal, imaginal_agent, path_and_obs_imaginal)
-        self.goal_reached(imaginal_agent)
+        #self.goal_reached(imaginal_agent)
 
         # Putting the modified chunks back into the buffers
         set_imaginal_agent_chunk(self.agent_construct, "agent", imaginal_agent)
@@ -552,17 +552,17 @@ class JohannesAgentAdapter:
                     print("goal_pos: ", self.goal_agent_pos)
                     print("current_pos != goal_pos")
 
-    def goal_reached(self, imaginal_agent):
-        if self.prod == f"{self.goal_phases[4]}_reached":
-            self.move_counter = 0
-            new_start_pos_x = imaginal_agent.current_pos_x
-            new_start_pos_y = imaginal_agent.current_pos_y
-            new_goal_pos_x = imaginal_agent.start_pos_x
-            new_goal_pos_y = imaginal_agent.start_pos_y
-            imaginal_agent.start_pos_x = new_start_pos_x
-            imaginal_agent.start_pos_y = new_start_pos_y
-            imaginal_agent.goal_pos_x = new_goal_pos_x
-            imaginal_agent.goal_pos_y = new_goal_pos_y
+    # def goal_reached(self, imaginal_agent):
+    #     if self.prod == f"{self.goal_phases[4]}_reached":
+    #         self.move_counter = 0
+    #         new_start_pos_x = imaginal_agent.current_pos_x
+    #         new_start_pos_y = imaginal_agent.current_pos_y
+    #         new_goal_pos_x = imaginal_agent.start_pos_x
+    #         new_goal_pos_y = imaginal_agent.start_pos_y
+    #         imaginal_agent.start_pos_x = new_start_pos_x
+    #         imaginal_agent.start_pos_y = new_start_pos_y
+    #         imaginal_agent.goal_pos_x = new_goal_pos_x
+    #         imaginal_agent.goal_pos_y = new_goal_pos_y
 
 
     # def evalUp(self):
