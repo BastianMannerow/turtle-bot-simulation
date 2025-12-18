@@ -37,7 +37,7 @@ class Simulation:
         self.print_middleman = False
         self.width = 25
         self.height = 22
-        self.speed_factor = 100              # 100 = real-time cognition
+        self.speed_factor = 0              # 100 = real-time cognition
         self.print_agent_actions = True
         self.los = 0  # 0 infinity line of sight
         self.stepper = True

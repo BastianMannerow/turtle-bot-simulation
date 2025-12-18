@@ -767,6 +767,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}Reached
                 =imaginal_agent>
+                isa     agent
                 start_pos_x =start_x
                 start_pos_y =start_y
                 goal_pos_x =goal_x
@@ -777,6 +778,7 @@ class JohannesAgent:
                 phase   {self.goal_phases[1]}
                 state   {self.goal_phases[1]}Start
                 =imaginal_agent>
+                isa     agent
                 start_pos_x =goal_x
                 start_pos_y =goal_y
                 goal_pos_x =start_x
