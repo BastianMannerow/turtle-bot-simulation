@@ -114,7 +114,7 @@ class JohannesAgent:
         self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
         self.add_moving_productions(actr_agent, self.goal_phases[2])
         # self.add_eval_productions(actr_agent, self.goal_phases[3])
-        # self.add_goal_productions(actr_agent, self.goal_phases[4])
+        self.add_goal_productions(actr_agent, self.goal_phases[4])
         self.add_retrieval_productions(actr_agent, self.goal_phases[5])
         return actr_agent
 
