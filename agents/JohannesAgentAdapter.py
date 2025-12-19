@@ -417,7 +417,7 @@ class JohannesAgentAdapter:
 
 
     def evalUp(self, goal, imaginal_agent, path_and_obs_imaginal):
-        if self.prod == "evalUp":
+        if self.prod == f"{self.goal_phases[3]}_evalUp":
             if self.bumped == False:
                 path_and_obs_imaginal.bumped = "false"
                 goal.phase = f"{self.goal_phases[5]}"
@@ -429,7 +429,7 @@ class JohannesAgentAdapter:
                 goal.state = f"{self.goal_phases[5]}SearchForUnknownObstacle"
     
     def evalDown(self, goal, imaginal_agent, path_and_obs_imaginal):
-        if self.prod == "evalDown":
+        if self.prod == f"{self.goal_phases[3]}_evalDown":
             if self.bumped == False:
                 path_and_obs_imaginal.bumped = "false"
                 goal.phase = f"{self.goal_phases[5]}"
@@ -441,7 +441,8 @@ class JohannesAgentAdapter:
                 goal.state = f"{self.goal_phases[5]}SearchForUnknownObstacle"
 
     def evalRight(self, goal, imaginal_agent, path_and_obs_imaginal):
-        if self.prod == "evalRight":
+        if self.prod == f"{self.goal_phases[3]}_evalRight":
+            print("self.bumped: ", self.bumped)
             if self.bumped == False:
                 path_and_obs_imaginal.bumped = "false"
                 goal.phase = f"{self.goal_phases[5]}"
@@ -454,7 +455,7 @@ class JohannesAgentAdapter:
 
 
     def evalLeft(self, goal, imaginal_agent, path_and_obs_imaginal):
-        if self.prod == "evalLeft":
+        if self.prod == f"{self.goal_phases[3]}_evalLeft":
             if self.bumped == False:
                 path_and_obs_imaginal.bumped = "false"
                 goal.phase = f"{self.goal_phases[5]}"

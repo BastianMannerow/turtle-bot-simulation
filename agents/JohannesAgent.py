@@ -474,12 +474,13 @@ class JohannesAgent:
                 obstacle_pos_x     =x
                 obstacle_pos_y     =y
                 =path_and_obs_imaginal>
+                isa     path_and_obs
                 bumped  false
                 ==>
                 =g>
                 isa     goal
-                phase   {phase}ClearObstacleUpdateImaginalPassable
-                state   {phase}
+                phase   {phase}
+                state   {phase}ClearObstacleUpdateImaginalPassable
                 =obstacle_update_imaginal>
                 isa     obstacle
                 obstacle_pos_x     =x
@@ -500,6 +501,7 @@ class JohannesAgent:
                 obstacle_pos_x     =x
                 obstacle_pos_y     =y
                 =path_and_obs_imaginal>
+                isa     path_and_obs
                 bumped  true
                 ==>
                 =g>
@@ -551,7 +553,7 @@ class JohannesAgent:
                 =g>
                 isa     goal
                 phase   {self.goal_phases[2]}
-                state   {self.goal_phases[2]}_NextStep
+                state   {self.goal_phases[2]}NextStep
                 ~obstacle_update_imaginal>
                 +obstacle_update_imaginal>
                 isa     obstacle
