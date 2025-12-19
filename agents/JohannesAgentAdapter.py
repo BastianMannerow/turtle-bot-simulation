@@ -97,10 +97,10 @@ class JohannesAgentAdapter:
             or len(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "obstacle_update_imaginal")) == 0
         ):
             return
-        # print(pyactrFunctionalityExtension.get_goal(self.agent_construct))
+        print(pyactrFunctionalityExtension.get_goal(self.agent_construct))
         # print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent"))
-        # print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "path_and_obs_imaginal"))
-        # print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "obstacle_update_imaginal"))
+        print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "path_and_obs_imaginal"))
+        print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "obstacle_update_imaginal"))
 
         # Only process relevant productions
         allowed_prods = {
@@ -113,6 +113,7 @@ class JohannesAgentAdapter:
             f"{self.goal_phases[5]}_obstacle_request_solid_positive",
             f"{self.goal_phases[5]}_obstacle_request_unknown_positive",
             f"{self.goal_phases[5]}_obstacle_request_passable_positive",
+            f"{self.goal_phases[5]}_decide_that_obstacle_is_solid",
             f"{self.goal_phases[1]}_safe_path",
             f"{self.goal_phases[2]}_decide_direction",
             f"{self.goal_phases[3]}_evalUp",
@@ -143,6 +144,7 @@ class JohannesAgentAdapter:
         self.solid_obstacle_retrieved(goal, path_and_obs_imaginal)
         self.unknown_obstacle_retrieved(goal, path_and_obs_imaginal)
         self.passable_obstacle_retrieved(goal, path_and_obs_imaginal)
+        self.add_to_list_of_solid_obstacles(goal, path_and_obs_imaginal)
         self.decideDirection(goal, imaginal_agent, path_and_obs_imaginal)
         self.evalUp(goal, imaginal_agent, path_and_obs_imaginal)
         self.evalDown(goal, imaginal_agent, path_and_obs_imaginal)
@@ -207,15 +209,19 @@ class JohannesAgentAdapter:
 
     def a_star_fast_path(self, goal, imaginal_agent):
         if self.prod == f"{self.goal_phases[1]}_fast_path":
+
+            self.move_counter = 0
+            self.path_coord_counter = 0
+            
             grid = self.stimuli
             rows = len(grid)
             cols = len(grid[0])
 
             BLOCKED = {"X"}
-            
-            externally_blocked = set(getattr(self, "solid_obstacle_coords", []))
+            print("self.temp_solid_obstacle_coords: ", self.temp_solid_obstacle_coords)
 
             start_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
+            print("start_pos: ", start_pos)
             goal_pos = (int(f"{imaginal_agent.goal_pos_x}"), int(f"{imaginal_agent.goal_pos_y}"))
             #print(start_pos)
             #print(goal_pos)
@@ -262,7 +268,7 @@ class JohannesAgentAdapter:
 
                     neighbor = (nx, ny)
                     
-                    if neighbor in externally_blocked:
+                    if neighbor in self.temp_solid_obstacle_coords:
                         continue
 
                     tentative_g = g_score[current] + 1
@@ -279,13 +285,16 @@ class JohannesAgentAdapter:
     
     def a_star_safe_path(self, goal, imaginal_agent):
         if self.prod == f"{self.goal_phases[1]}_fast_path":
+            
+            self.move_counter = 0
+            self.path_coord_counter = 0
+
             grid = self.stimuli
             rows = len(grid)
             cols = len(grid[0])
 
             BLOCKED = {"X", "Z"}
-            
-            externally_blocked = set(getattr(self, "solid_obstacle_coords", []))
+            print("self.temp_solid_obstacle_coords: ", self.temp_solid_obstacle_coords)
 
             start_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
             goal_pos = (int(f"{imaginal_agent.goal_pos_x}"), int(f"{imaginal_agent.goal_pos_y}"))
@@ -334,7 +343,7 @@ class JohannesAgentAdapter:
 
                     neighbor = (nx, ny)
                     
-                    if neighbor in externally_blocked:
+                    if neighbor in self.temp_solid_obstacle_coords:
                         continue
 
                     tentative_g = g_score[current] + 1
@@ -388,8 +397,8 @@ class JohannesAgentAdapter:
     def solid_obstacle_retrieved(self, goal, path_and_obs_imaginal):
         if self.prod == f"{self.goal_phases[5]}_obstacle_request_solid_positive":
             if f"{goal.prev_phase}" == f"{self.goal_phases[1]}":
-                solid_obstacle_coord = (path_and_obs_imaginal.check_obstacle_pos_x, path_and_obs_imaginal.check_obstacle_pos_y)
-                self.solid_obstacle_coords.append(solid_obstacle_coord)
+                solid_obstacle_coord = (int(f"{path_and_obs_imaginal.check_obstacle_pos_x}"), int(f"{path_and_obs_imaginal.check_obstacle_pos_y}"))
+                self.temp_solid_obstacle_coords.append(solid_obstacle_coord)
                 self.path_coord_counter += 1
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
@@ -419,7 +428,6 @@ class JohannesAgentAdapter:
     def passable_obstacle_retrieved(self, goal, path_and_obs_imaginal):
         if self.prod == f"{self.goal_phases[5]}_obstacle_request_passable_positive":
             if f"{goal.prev_phase}" == f"{self.goal_phases[1]}":
-                self.path_coord_counter += 1
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
                 goal.prev_phase = f"{self.goal_phases[5]}"
@@ -427,7 +435,11 @@ class JohannesAgentAdapter:
                 goal.phase = f"{self.goal_phases[2]}"
                 goal.state = f"{self.goal_phases[2]}NextStep"
                 
-            
+    def add_to_list_of_solid_obstacles(self, goal, path_and_obs_imaginal):
+        if self.prod == f"{self.goal_phases[5]}_decide_that_obstacle_is_solid":
+            solid_obstacle_coord = (int(f"{path_and_obs_imaginal.check_obstacle_pos_x}"), int(f"{path_and_obs_imaginal.check_obstacle_pos_y}"))
+            self.temp_solid_obstacle_coords.append(solid_obstacle_coord)
+            goal.state = f"{self.goal_phases[5]}ClearObstacleUpdateImaginalSolid"
 
 
     def decideDirection(self, goal, imaginal_agent, path_and_obs_imaginal):
@@ -555,9 +567,6 @@ class JohannesAgentAdapter:
                 path_and_obs_imaginal.bumped = "false"
                 goal.phase = f"{self.goal_phases[5]}"
                 goal.state = f"{self.goal_phases[5]}SearchForObstacles"
-                text = str(pyactrFunctionalityExtension.get_declarative_memory(self.agent_construct))
-                with open("datei.txt", "w", encoding="utf-8") as f:
-                    f.write(text)
             else:
                 path_and_obs_imaginal.bumped = "true"
                 temp_current_pos = (current_agent_pos[0] + 1, current_agent_pos[1])

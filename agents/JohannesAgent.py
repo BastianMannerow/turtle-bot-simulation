@@ -332,6 +332,7 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}SolidObstacleRetrieved
+                ~retrieval>
                 """
         )
 
@@ -357,6 +358,24 @@ class JohannesAgent:
                 obstacle_pos_x     =x
                 obstacle_pos_y     =y
                 status  unknown
+                ~retrieval>
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_obstacle_request_negative",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}StartToRetrieveObstacle
+                ?retrieval>
+                state   error
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}SearchForObstacles
                 """
         )
 
@@ -377,6 +396,7 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}PassableObstacleRetrieved
+                ~retrieval>
                 """
         )
 
@@ -447,7 +467,7 @@ class JohannesAgent:
                 =g>
                 isa     goal
                 phase   {phase}
-                state   {phase}ClearObstacleUpdateImaginalSolid
+                state   {phase}AddToTempSolidObstacleList
                 =obstacle_update_imaginal>
                 isa     obstacle
                 obstacle_pos_x     =x
