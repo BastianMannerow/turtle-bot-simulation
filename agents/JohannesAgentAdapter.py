@@ -560,25 +560,25 @@ class JohannesAgentAdapter:
             self.move_counter = 0
 
 
-    # def evalUp(self):
-    #     if self.prod == "evalUp":
-    #         pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
-    #         # Evaluate upward movement
+    def evalUp(self):
+        if self.prod == "evalUp":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
+            # Evaluate upward movement
     
-    # def evalDown(self):
-    #     if self.prod == "evalDown":
-    #         pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
-    #         # Evaluate downward movement
+    def evalDown(self):
+        if self.prod == "evalDown":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
+            # Evaluate downward movement
 
-    # def evalRight(self):
-    #     if self.prod == "evalRight":
-    #         pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
-    #         # Evaluate rightward movement
+    def evalRight(self):
+        if self.prod == "evalRight":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
+            # Evaluate rightward movement
 
-    # def evalLeft(self):
-    #     if self.prod == "evalLeft":
-    #         pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
-    #         # Evaluate leftward movement
+    def evalLeft(self):
+        if self.prod == "evalLeft":
+            pyactrFunctionalityExtension.set_goal(self.actr_agent, actr.makechunk(typename=f"{self.goal_phases[2]}", state=f"{self.goal_phases[2]}NextStep"))
+            # Evaluate leftward movement
         
     def on_bump_detected(self):
         """
@@ -588,13 +588,25 @@ class JohannesAgentAdapter:
 
         '''If Bump is detected update obstacle chunk in decmem on position where the robot should be to state "solid".
         After this go back, do pathfinding and search for new fastest path with updated obstacle information.
-        After 5 times bump change path finding strategy to safe path (avoid all obstacles without testing them).
+        After 3 times bump change path finding strategy to safe path (avoid all obstacles without testing them).
         Naturally forgetting strategy after some time to allow testing obstacles again.
         Then the number of bumps allowed should be reduced since the agent should have learned about this circumstance'''
         self.bumped = True
         self.number_of_bumps += 1
 
-
+def locate_self_after_movement(self, imaginal_agent):
+        # print("Adapter locate self + self.prod: ", self.prod)
+        # Determine agent's position
+        self.current_pos = self._find_symbol_position(self.stimuli, "A")
+        # print(self.current_pos)
+        if self.current_pos is None:
+            print("Warning: agent symbol 'A' not found in stimuli.")
+            return
+        imaginal_agent.current_pos_x = self.current_pos[1]
+        imaginal_agent.current_pos_y = self.current_pos[0]
+        imaginal_agent.start_pos_x = self.current_pos[1]
+        imaginal_agent.start_pos_y = self.current_pos[0]
+        
 class dotdict(dict):
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__

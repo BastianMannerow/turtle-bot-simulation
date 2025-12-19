@@ -113,7 +113,7 @@ class JohannesAgent:
         self.add_init_productions(actr_agent, self.goal_phases[0])
         self.add_pathfinding_productions(actr_agent, self.goal_phases[1])
         self.add_moving_productions(actr_agent, self.goal_phases[2])
-        # self.add_eval_productions(actr_agent, self.goal_phases[3])
+        self.add_eval_productions(actr_agent, self.goal_phases[3])
         self.add_goal_productions(actr_agent, self.goal_phases[4])
         self.add_retrieval_productions(actr_agent, self.goal_phases[5])
         return actr_agent
@@ -507,7 +507,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveUp
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
@@ -529,7 +529,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveUp
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
@@ -551,7 +551,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveDown
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
@@ -573,7 +573,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveDown
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
@@ -595,7 +595,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveRight
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
@@ -617,7 +617,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveRight
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
@@ -639,7 +639,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveLeft
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle true
                 ==>
                 =g>
@@ -661,7 +661,7 @@ class JohannesAgent:
                 phase   {phase}
                 state   {phase}MoveLeft
                 =path_and_obs_imaginal>
-                isa     agent
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
                 ==>
                 =g>
@@ -691,8 +691,8 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}PendingEvaluation
-                =imaginal_agent>
-                isa     agent
+                =path_and_obs_imaginal>
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
             """
         )
@@ -711,8 +711,8 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}PendingDecision
-                =imaginal_agent>
-                isa     agent
+                =path_and_obs_imaginal>
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
             """
         )
@@ -731,8 +731,8 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}PendingDecision
-                =imaginal_agent>
-                isa     agent
+                =path_and_obs_imaginal>
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
             """
         )
@@ -751,8 +751,8 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}PendingDecision
-                =imaginal_agent>
-                isa     agent
+                =path_and_obs_imaginal>
+                isa     path_and_obs
                 next_pos_might_be_obstacle false
             """
         )
