@@ -85,11 +85,10 @@ def real_world_environment(agents):
     # agent start position
     matrix[20][1] = agents[0]
     matrix[20][4] = Target()
-    matrix[20][3] = FakeWall()
+    matrix[20][3] = Wall()
     matrix[19][3] = Wall()
     matrix[19][4] = Wall()
-    matrix[19][5] = Wall()
-    matrix[19][6] = FakeWall()
+    matrix[19][5] = FakeWall()
     matrix[18][4] = FakeWall()
     # Outside Walls
     # Outside Wall top
