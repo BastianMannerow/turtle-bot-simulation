@@ -91,7 +91,7 @@ class JohannesAgent:
         actr.chunktype("agent", "current_pos_x current_pos_y goal_pos_x goal_pos_y start_pos_x start_pos_y")
 
         # Imaginal Chunk Type for path and obstacles
-        actr.chunktype("path_and_obs", "check_obstacle_pos_x check_obstacle_pos_y next_pos_x next_pos_y next_pos_might_be_obstacle")
+        actr.chunktype("path_and_obs", "check_obstacle_pos_x check_obstacle_pos_y next_pos_x next_pos_y next_pos_might_be_obstacle bumped")
 
         # DecMem Chunk Type
         actr.chunktype("obstacle", "obstacle_pos_x obstacle_pos_y status")
@@ -108,6 +108,7 @@ class JohannesAgent:
         # Imaginal
         actr_agent.set_goal(name="imaginal_agent", delay=0)
         actr_agent.set_goal(name="path_and_obs_imaginal", delay=0)
+        actr_agent.set_goal(name="obstacle_update_imaginal", delay=0)
 
         # Add productions corresponding to the first goal phase
         self.add_init_productions(actr_agent, self.goal_phases[0])
@@ -157,6 +158,8 @@ class JohannesAgent:
                 isa     agent
                 +path_and_obs_imaginal>
                 isa     path_and_obs
+                +obstacle_update_imaginal>
+                isa     obstacle
             """
         )
 
@@ -236,7 +239,7 @@ class JohannesAgent:
                 =g>
                 isa     goal
                 phase   {phase}
-                state   {phase}FastPath
+                state   {phase}DecidePathfindingStrategyInAdapter
             """
         )
 
@@ -365,12 +368,19 @@ class JohannesAgent:
                 state   {phase}StartToRetrieveUnknownObstacle
                 =retrieval>
                 isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
                 status  unknown
                 ==>
                 =g>
                 isa     goal
                 phase   {phase}
                 state   {phase}UnknownObstacleRetrieved
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  unknown
                 """
         )
 
@@ -449,6 +459,102 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}PassableObstacleRetrievalFailed
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_decide_that_obstacle_is_passable",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}UnknownObstacleRetrieved
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                =path_and_obs_imaginal>
+                bumped  false
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}ClearObstacleUpdateImaginalPassable
+                state   {phase}
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  passable
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_decide_that_obstacle_is_solid",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}UnknownObstacleRetrieved
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                =path_and_obs_imaginal>
+                bumped  true
+                ==>
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}ClearObstacleUpdateImaginalSolid
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                status  solid
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_clear_obstacle_imaginal_solid",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}ClearObstacleUpdateImaginalSolid
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                ==>
+                =g>
+                isa     goal
+                phase   {self.goal_phases[1]}
+                state   {self.goal_phases[1]}Start
+                ~obstacle_update_imaginal>
+                +obstacle_update_imaginal>
+                isa     obstacle
+                """
+        )
+
+        actr_agent.productionstring(
+            name = f"retrieval_clear_obstacle_imaginal_passable",
+            string=f"""
+                =g>
+                isa     goal
+                phase   {phase}
+                state   {phase}ClearObstacleUpdateImaginalPassable
+                =obstacle_update_imaginal>
+                isa     obstacle
+                obstacle_pos_x     =x
+                obstacle_pos_y     =y
+                ==>
+                =g>
+                isa     goal
+                phase   {self.goal_phases[2]}
+                state   {self.goal_phases[2]}_NextStep
+                ~obstacle_update_imaginal>
+                +obstacle_update_imaginal>
+                isa     obstacle
                 """
         )
     # #     actr_agent.productionstring(
