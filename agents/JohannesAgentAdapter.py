@@ -51,6 +51,7 @@ class JohannesAgentAdapter:
         self.move_counter = 0
         self.path_coord_counter = 0
         self.temp_solid_obstacle_coords = []
+        self.current_temp_solid_obstacle_coords = []
 
     # def generate_path():
     #     '''Tupel path generieren, filtern des Paths von leeren Feldern (self.agent_construnct.visual_stimuli = "(-)", agent und goal)
@@ -98,7 +99,7 @@ class JohannesAgentAdapter:
         ):
             return
         print(pyactrFunctionalityExtension.get_goal(self.agent_construct))
-        # print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent"))
+        print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "imaginal_agent"))
         print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "path_and_obs_imaginal"))
         print(pyactrFunctionalityExtension.get_imaginal(self.agent_construct, "obstacle_update_imaginal"))
 
@@ -109,6 +110,7 @@ class JohannesAgentAdapter:
             f"{self.goal_phases[0]}_goal",
             f"{self.goal_phases[1]}_start",
             f"{self.goal_phases[1]}_fast_path",
+            f"{self.goal_phases[1]}_safe_path",
             f"{self.goal_phases[1]}_check_obstacles_on_path",
             f"{self.goal_phases[5]}_obstacle_request_solid_positive",
             f"{self.goal_phases[5]}_obstacle_request_unknown_positive",
@@ -140,11 +142,12 @@ class JohannesAgentAdapter:
         self.locate_goal(imaginal_agent)
         self.decide_pathfinding_strategy(goal)
         self.a_star_fast_path(goal, imaginal_agent)
+        self.a_star_safe_path(goal, imaginal_agent)
         self.check_for_obstacles(goal, path_and_obs_imaginal)
         self.solid_obstacle_retrieved(goal, path_and_obs_imaginal)
         self.unknown_obstacle_retrieved(goal, path_and_obs_imaginal)
         self.passable_obstacle_retrieved(goal, path_and_obs_imaginal)
-        self.add_to_list_of_solid_obstacles(goal, path_and_obs_imaginal)
+        # self.add_to_list_of_solid_obstacles(goal, path_and_obs_imaginal)
         self.decideDirection(goal, imaginal_agent, path_and_obs_imaginal)
         self.evalUp(goal, imaginal_agent, path_and_obs_imaginal)
         self.evalDown(goal, imaginal_agent, path_and_obs_imaginal)
@@ -251,7 +254,7 @@ class JohannesAgentAdapter:
                     print("Planned Path: ", self.planned_path)
                     goal.phase = f"{self.goal_phases[1]}"
                     goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
-                    self.temp_solid_obstacle_coords = []
+                    self.current_temp_solid_obstacle_coords = []
                     return
 
                 cx, cy = current
@@ -284,11 +287,11 @@ class JohannesAgentAdapter:
             print("No path found")
     
     def a_star_safe_path(self, goal, imaginal_agent):
-        if self.prod == f"{self.goal_phases[1]}_fast_path":
+        if self.prod == f"{self.goal_phases[1]}_safe_path":
             
             self.move_counter = 0
             self.path_coord_counter = 0
-
+            
             grid = self.stimuli
             rows = len(grid)
             cols = len(grid[0])
@@ -297,6 +300,7 @@ class JohannesAgentAdapter:
             print("self.temp_solid_obstacle_coords: ", self.temp_solid_obstacle_coords)
 
             start_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
+            print("start_pos: ", start_pos)
             goal_pos = (int(f"{imaginal_agent.goal_pos_x}"), int(f"{imaginal_agent.goal_pos_y}"))
             #print(start_pos)
             #print(goal_pos)
@@ -326,7 +330,7 @@ class JohannesAgentAdapter:
                     print("Planned Path: ", self.planned_path)
                     goal.phase = f"{self.goal_phases[2]}"
                     goal.state = f"{self.goal_phases[2]}AdapterPathDecisionFinished"
-                    self.temp_solid_obstacle_coords = []
+                    self.current_temp_solid_obstacle_coords = []
                     return
 
                 cx, cy = current
@@ -370,7 +374,7 @@ class JohannesAgentAdapter:
                 for (x, y) in self.planned_path
                 if self.stimuli[y][x] in obstacles
             ]
-
+            #print("decmem: ", pyactrFunctionalityExtension.get_declarative_memory(self.agent_construct))
             if self.path_coord_counter <= len(self.path_with_obstacles)-1:
                 check_obstacle_path_coord = self.path_with_obstacles[self.path_coord_counter]
                 #print("current planned path step: ", check_obstacle_path_coord)
@@ -380,7 +384,7 @@ class JohannesAgentAdapter:
                 path_and_obs_imaginal.check_obstacle_pos_x = check_obstacle_path_coord[0]
                 path_and_obs_imaginal.check_obstacle_pos_y = check_obstacle_path_coord[1]
                 #print("after adding all productions: ", pyactrFunctionalityExtension.get_all_productions(self.agent_construct))
-            elif self.temp_solid_obstacle_coords == None or len(self.temp_solid_obstacle_coords) == 0:
+            elif self.current_temp_solid_obstacle_coords == None or len(self.current_temp_solid_obstacle_coords) == 0:
                 #print("set goal to move to goal")
                 goal.phase = f"{self.goal_phases[2]}"
                 goal.state = f"{self.goal_phases[2]}AdapterPathDecisionFinished"
@@ -390,7 +394,6 @@ class JohannesAgentAdapter:
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}Start"
                 goal.prev_phase = f"{self.goal_phases[1]}"
-                self.temp_solid_obstacle_coords = []
                 self.path_coord_counter = 0
 
 
@@ -399,6 +402,7 @@ class JohannesAgentAdapter:
             if f"{goal.prev_phase}" == f"{self.goal_phases[1]}":
                 solid_obstacle_coord = (int(f"{path_and_obs_imaginal.check_obstacle_pos_x}"), int(f"{path_and_obs_imaginal.check_obstacle_pos_y}"))
                 self.temp_solid_obstacle_coords.append(solid_obstacle_coord)
+                self.current_temp_solid_obstacle_coords.append(solid_obstacle_coord)
                 self.path_coord_counter += 1
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
@@ -435,15 +439,17 @@ class JohannesAgentAdapter:
                 goal.phase = f"{self.goal_phases[2]}"
                 goal.state = f"{self.goal_phases[2]}NextStep"
                 
-    def add_to_list_of_solid_obstacles(self, goal, path_and_obs_imaginal):
-        if self.prod == f"{self.goal_phases[5]}_decide_that_obstacle_is_solid":
-            solid_obstacle_coord = (int(f"{path_and_obs_imaginal.check_obstacle_pos_x}"), int(f"{path_and_obs_imaginal.check_obstacle_pos_y}"))
-            self.temp_solid_obstacle_coords.append(solid_obstacle_coord)
-            goal.state = f"{self.goal_phases[5]}ClearObstacleUpdateImaginalSolid"
+    # def add_to_list_of_solid_obstacles(self, goal, path_and_obs_imaginal):
+    #     if self.prod == f"{self.goal_phases[5]}_decide_that_obstacle_is_solid":
+    #         #solid_obstacle_coord = (int(f"{path_and_obs_imaginal.check_obstacle_pos_x}"), int(f"{path_and_obs_imaginal.check_obstacle_pos_y}"))
+    #         #self.temp_solid_obstacle_coords.append(solid_obstacle_coord)
+    #         goal.state = f"{self.goal_phases[5]}ClearObstacleUpdateImaginalSolid"
 
 
     def decideDirection(self, goal, imaginal_agent, path_and_obs_imaginal):
         if self.prod == f"{self.goal_phases[2]}_decide_direction":
+            self.temp_solid_obstacle_coords = []
+            self.current_temp_solid_obstacle_coords = []
             #print("adapter decide direction started")
             self.current_agent_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}")) # y, x
             self.goal_agent_pos = (int(f"{imaginal_agent.goal_pos_x}"), int(f"{imaginal_agent.goal_pos_y}")) # y, x
@@ -469,7 +475,7 @@ class JohannesAgentAdapter:
                     (0, -1): "DOWN"
                 }
 
-                direction = (current_step[0] - self.current_agent_pos[0], current_step[1] - self.current_agent_pos[1])
+                direction = (current_step[0] - self.current_agent_pos[0], self.current_agent_pos[1] - current_step[1])
                 #print("calculated direction: ", direction)
 
                 move_direction = direction_map.get(direction)
@@ -505,6 +511,8 @@ class JohannesAgentAdapter:
                     temp_current_pos = (self.current_agent_pos[0] - 1, self.current_agent_pos[1])
                     imaginal_agent.current_pos_x = str(temp_current_pos[0])
                     self.move_counter += 1
+                path_and_obs_imaginal.check_obstacle_pos_x = str(temp_current_pos[0])
+                path_and_obs_imaginal.check_obstacle_pos_y = str(temp_current_pos[1])
 
             else:
                 if self.current_agent_pos == self.goal_agent_pos:
@@ -530,6 +538,7 @@ class JohannesAgentAdapter:
                 imaginal_agent.current_pos_y = str(temp_current_pos[1])
                 goal.phase = f"{self.goal_phases[5]}"
                 goal.state = f"{self.goal_phases[5]}SearchForObstacles"
+                self.bumped = False
     
     def evalDown(self, goal, imaginal_agent, path_and_obs_imaginal):
         current_agent_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
@@ -544,6 +553,7 @@ class JohannesAgentAdapter:
                 imaginal_agent.current_pos_y = str(temp_current_pos[1])
                 goal.phase = f"{self.goal_phases[5]}"
                 goal.state = f"{self.goal_phases[5]}SearchForObstacles"
+                self.bumped = False
 
     def evalRight(self, goal, imaginal_agent, path_and_obs_imaginal):
         current_agent_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
@@ -559,6 +569,7 @@ class JohannesAgentAdapter:
                 imaginal_agent.current_pos_x = str(temp_current_pos[0])
                 goal.phase = f"{self.goal_phases[5]}"
                 goal.state = f"{self.goal_phases[5]}SearchForObstacles"
+                self.bumped = False
 
     def evalLeft(self, goal, imaginal_agent, path_and_obs_imaginal):
         current_agent_pos = (int(f"{imaginal_agent.current_pos_x}"), int(f"{imaginal_agent.current_pos_y}"))
@@ -573,6 +584,7 @@ class JohannesAgentAdapter:
                 imaginal_agent.current_pos_x = str(temp_current_pos[0])
                 goal.phase = f"{self.goal_phases[5]}"
                 goal.state = f"{self.goal_phases[5]}SearchForObstacles"
+                self.bumped = False
 
     def goal_reached(self):
         if self.prod == f"{self.goal_phases[4]}_reached":

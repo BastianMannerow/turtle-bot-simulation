@@ -51,7 +51,7 @@ class JohannesAgent:
             environment=self.environ,
             motor_prepared=True,
             automatic_visual_search=False,
-            subsymbolic=True
+            subsymbolic=False
         )
 
         # Define reasoning phases
@@ -303,6 +303,8 @@ class JohannesAgent:
                 isa   path_and_obs
                 check_obstacle_pos_x   =x
                 check_obstacle_pos_y   =y
+                ?retrieval>
+                buffer  empty
                 ==>
                 =g>
                 isa     goal
@@ -376,6 +378,7 @@ class JohannesAgent:
                 isa     goal
                 phase   {phase}
                 state   {phase}SearchForObstacles
+                ~retrieval>
                 """
         )
 
@@ -467,7 +470,7 @@ class JohannesAgent:
                 =g>
                 isa     goal
                 phase   {phase}
-                state   {phase}AddToTempSolidObstacleList
+                state   {phase}ClearObstacleUpdateImaginalSolid
                 =obstacle_update_imaginal>
                 isa     obstacle
                 obstacle_pos_x     =x
@@ -492,6 +495,8 @@ class JohannesAgent:
                 isa     goal
                 phase   {self.goal_phases[1]}
                 state   {self.goal_phases[1]}Start
+                =path_and_obs_imaginal>
+                bumped  false
                 ~obstacle_update_imaginal>
                 +obstacle_update_imaginal>
                 isa     obstacle
