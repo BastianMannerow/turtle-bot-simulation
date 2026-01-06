@@ -110,7 +110,6 @@ class JohannesAgentAdapter:
             f"{self.goal_phases[0]}_goal",
             f"{self.goal_phases[1]}_start",
             f"{self.goal_phases[1]}_fast_path",
-            f"{self.goal_phases[1]}_safe_path",
             f"{self.goal_phases[1]}_check_obstacles_on_path",
             f"{self.goal_phases[5]}_obstacle_request_solid_positive",
             f"{self.goal_phases[5]}_obstacle_request_unknown_positive",
@@ -592,18 +591,14 @@ class JohannesAgentAdapter:
             self.number_of_bumps = 0
         
     def on_bump_detected(self):
+        print(f"{bcolors.WARNING}Warning: Bump detected")
         """
         Triggered when the environment signals an impact or blocked movement.
         Extend as needed for environment-specific responses.
         """
-
-        '''If Bump is detected update obstacle chunk in decmem on position where the robot should be to state "solid".
-        After this go back, do pathfinding and search for new fastest path with updated obstacle information.
-        After 3 times bump change path finding strategy to safe path (avoid all obstacles without testing them).
-        Naturally forgetting strategy after some time to allow testing obstacles again.
-        Then the number of bumps allowed should be reduced since the agent should have learned about this circumstance'''
         self.bumped = True
         self.number_of_bumps += 1
+        print("self.bumped: ", self.bumped)
         
 class dotdict(dict):
     __getattr__ = dict.get
@@ -637,3 +632,14 @@ def set_path_and_obs_imaginal_chunk(actr_agent, type, chunk):
     
 def set_obstacle_update_imaginal_chunk(actr_agent, type, chunk):
     pyactrFunctionalityExtension.set_imaginal(actr_agent, actr.makechunk(typename=type, **chunk), "obstacle_update_imaginal")
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
