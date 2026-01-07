@@ -84,12 +84,12 @@ def real_world_environment(agents):
     matrix: List[List[Optional[Any]]] = [[None for _ in range(25)] for _ in range(22)]
     # agent start position
     matrix[20][1] = agents[0]
-    matrix[20][3] = Target()
-    matrix[20][2] = Wall()
-    matrix[19][2] = Wall()
-    matrix[19][3] = Wall()
-    matrix[19][4] = FakeWall()
-    matrix[18][3] = FakeWall()
+    matrix[13][18] = Target()
+    matrix[13][17] = Wall()
+    matrix[12][17] = Wall()
+    matrix[12][18] = Wall()
+    matrix[12][19] = FakeWall()
+    matrix[11][18] = FakeWall()
     # Outside Walls
     # Outside Wall top
     for i in range(25):
