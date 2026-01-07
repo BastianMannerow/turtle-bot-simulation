@@ -223,6 +223,7 @@ class JohannesController(Node):
             self.get_logger().warn(f"[{tb_name}] Back at start position and orientation restored.")
             self.return_phase[tb_name] = None
             self.return_sequence[tb_name] = {}
+            self.environment.register_bumping(agent)
             self.environment.robot_reached_position()
             return
         
@@ -230,7 +231,6 @@ class JohannesController(Node):
             self.get_logger().warn(f"drive forward command send after rotation")
             self.move_forward(agent, distance, angle)
         else:
-            self.environment.register_bumping(agent)
             self.environment.robot_reached_position()
 
     # ------------------------------------

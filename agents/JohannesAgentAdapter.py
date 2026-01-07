@@ -145,7 +145,7 @@ class JohannesAgentAdapter:
         self.check_for_obstacles(goal, path_and_obs_imaginal)
         self.solid_obstacle_retrieved(goal, path_and_obs_imaginal)
         self.unknown_obstacle_retrieved(goal, path_and_obs_imaginal)
-        self.passable_obstacle_retrieved(goal, path_and_obs_imaginal)
+        self.passable_obstacle_retrieved(goal)
         # self.add_to_list_of_solid_obstacles(goal, path_and_obs_imaginal)
         self.decideDirection(goal, imaginal_agent, path_and_obs_imaginal)
         self.evalUp(goal, imaginal_agent, path_and_obs_imaginal)
@@ -406,7 +406,7 @@ class JohannesAgentAdapter:
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
                 goal.prev_phase = f"{self.goal_phases[5]}"
-            elif goal.prev_phase == f"{self.goal_phases[3]}":
+            elif f"{goal.prev_phase}" == f"{self.goal_phases[3]}":
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}Start"
 
@@ -428,13 +428,14 @@ class JohannesAgentAdapter:
                     goal.state = f"{self.goal_phases[5]}DecisionPassableObstacle"
             
 
-    def passable_obstacle_retrieved(self, goal, path_and_obs_imaginal):
+    def passable_obstacle_retrieved(self, goal):
         if self.prod == f"{self.goal_phases[5]}_obstacle_request_passable_positive":
             if f"{goal.prev_phase}" == f"{self.goal_phases[1]}":
+                self.path_coord_counter += 1
                 goal.phase = f"{self.goal_phases[1]}"
                 goal.state = f"{self.goal_phases[1]}CheckObstaclesOnPath"
                 goal.prev_phase = f"{self.goal_phases[5]}"
-            elif goal.prev_phase == f"{self.goal_phases[3]}":
+            elif f"{goal.prev_phase}" == f"{self.goal_phases[3]}":
                 goal.phase = f"{self.goal_phases[2]}"
                 goal.state = f"{self.goal_phases[2]}NextStep"
                 
@@ -591,14 +592,13 @@ class JohannesAgentAdapter:
             self.number_of_bumps = 0
         
     def on_bump_detected(self):
-        print(f"{bcolors.WARNING}Warning: Bump detected")
         """
         Triggered when the environment signals an impact or blocked movement.
         Extend as needed for environment-specific responses.
         """
         self.bumped = True
         self.number_of_bumps += 1
-        print("self.bumped: ", self.bumped)
+        print("bump detected: ", self.bumped)
         
 class dotdict(dict):
     __getattr__ = dict.get
