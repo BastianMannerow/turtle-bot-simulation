@@ -82,14 +82,6 @@ def real_world_environment(agents):
     total_cells = 25*22
     num_agents = 1
     matrix: List[List[Optional[Any]]] = [[None for _ in range(25)] for _ in range(22)]
-    # agent start position
-    matrix[20][1] = agents[0]
-    matrix[13][18] = Target()
-    matrix[13][17] = Wall()
-    matrix[12][17] = Wall()
-    matrix[12][18] = Wall()
-    matrix[12][19] = FakeWall()
-    matrix[11][18] = FakeWall()
     # Outside Walls
     # Outside Wall top
     for i in range(25):
@@ -115,5 +107,16 @@ def real_world_environment(agents):
             if j >= 11 and j <= 14 and i >= 11 and i <= 14:
                 matrix[j][i] = Wall()
             # fake walls TODO / LATER maybe
+    # agent start position
+    matrix[13][16] = agents[0]
+    matrix[13][18] = Target()
+    matrix[13][17] = Wall()
+    matrix[12][17] = Wall()
+    matrix[12][18] = Wall()
+    matrix[12][19] = FakeWall()
+    matrix[11][18] = FakeWall()
+    matrix[14][18] = DefinitelyAWall()
+    matrix[14][19] = DefinitelyAWall()
+    matrix[14][20] = DefinitelyAWall()
     return matrix
 
