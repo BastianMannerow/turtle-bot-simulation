@@ -267,7 +267,8 @@ class JohannesAgent:
             name=f"{phase}_safe_path",
             string=f"""
                 =g>
-                isa     {phase}
+                isa     goal
+                phase   {phase}
                 state   {phase}SafePath
                 ==>
                 =g>

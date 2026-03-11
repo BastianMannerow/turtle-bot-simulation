@@ -121,7 +121,6 @@ class JohannesController(Node):
                 return
             rclpy.spin_once(self, timeout_sec=0.05)
 
-        # Jetzt sind Odom-Daten sicher da
         self.start_positions[tb_name] = self.positions[tb_name].copy()
         self.get_logger().warn(f"[{tb_name}] Startpose gespeichert: {self.start_positions[tb_name]} (save_start_pos)")
 
@@ -172,9 +171,6 @@ class JohannesController(Node):
             self.rotate_robot(agent, 0.0, -angle)
         else:
             self.environment.robot_reached_position()
-
-
-
 
 
     def rotate_robot(self, agent, distance, angle):
