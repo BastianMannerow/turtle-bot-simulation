@@ -5,6 +5,7 @@ from simulation.environment.DefinitelyAWall import DefinitelyAWall
 from simulation.environment.Target import Target
 
 
+
 class Middleman:
     """
     Mediates bidirectional communication between agents and their environment.
